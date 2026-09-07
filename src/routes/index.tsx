@@ -1,5 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { Rss } from 'lucide-react'
 import { DataLoaderError, PostList, TaxonomySidebar } from '#/components/post-list'
 import { publicConfig } from '#/lib/config'
 import { categoriesOptions, publishedPostsOptions, tagsOptions } from '#/lib/query-options'
@@ -25,13 +26,24 @@ export const Route = createFileRoute('/')({
   },
   head: () => ({
     meta: [
-      { title: `${publicConfig.siteName} · 一个没有自建后端的博客` },
-      {
-        name: 'description',
-        content: 'TanStack Start + Torchwood BaaS 的参考实现：SSR 内容站 + 浏览器直连的认证与写作。',
-      },
-      { property: 'og:site_name', content: publicConfig.siteName },
+      { title: publicConfig.siteName },
+      { name: 'description', content: publicConfig.siteDescription },
       { property: 'og:type', content: 'website' },
+      { property: 'og:title', content: publicConfig.siteName },
+      { property: 'og:description', content: publicConfig.siteDescription },
+      { property: 'og:url', content: publicConfig.siteUrl },
+    ],
+    scripts: [
+      {
+        type: 'application/ld+json',
+        children: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'WebSite',
+          name: publicConfig.siteName,
+          description: publicConfig.siteDescription,
+          url: publicConfig.siteUrl,
+        }),
+      },
     ],
   }),
   component: HomePage,
@@ -42,23 +54,35 @@ function HomePage() {
   const page = useQuery({ ...publishedPostsOptions(cursor), placeholderData: keepPreviousData })
 
   return (
-    <div className="grid gap-10 lg:grid-cols-[1fr_240px]">
-      <section className="space-y-6">
-        <header className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">最新文章</h1>
-          <p className="text-sm text-muted-foreground">
-            公开列表 = Server 面（API Key）读取 +{' '}
-            <code className="rounded bg-muted px-1">isNotNull("published_at")</code>{' '}
-            过滤；草稿因文档级 ACL 天然不可见。
-          </p>
-        </header>
-        {page.isError ? (
-          <DataLoaderError error={page.error} />
-        ) : (
-          <PostList page={page.data} buildPageHref={(c) => ({ to: '/', search: { cursor: c } })} />
-        )}
+    <div className="space-y-12">
+      <section className="space-y-3">
+        <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">{publicConfig.siteName}</h1>
+        <p className="max-w-2xl text-[15px] leading-7 text-muted-foreground">
+          {publicConfig.siteDescription}
+        </p>
+        <a
+          href="/feed.xml"
+          className="inline-flex items-center gap-1.5 text-sm text-primary transition-colors hover:underline"
+        >
+          <Rss className="size-3.5" />
+          通过 RSS 订阅更新
+        </a>
       </section>
-      <TaxonomySidebar />
+
+      <div className="grid gap-12 lg:grid-cols-[1fr_220px]">
+        <section className="space-y-6" aria-label="文章列表">
+          {page.isError ? (
+            <DataLoaderError error={page.error} />
+          ) : (
+            <PostList
+              page={page.data}
+              cursor={cursor}
+              buildPageHref={(c) => ({ to: '/', search: { cursor: c } })}
+            />
+          )}
+        </section>
+        <TaxonomySidebar />
+      </div>
     </div>
   )
 }

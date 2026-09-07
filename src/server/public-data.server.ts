@@ -7,11 +7,14 @@ import {
   parseTag,
 } from '#/lib/types'
 import {
+  adjacentNewerPostQuery,
+  adjacentOlderPostQuery,
   getPostBySlugQuery,
   listCommentsQuery,
   listPublishedPostsByCategoryQuery,
   listPublishedPostsByTagQuery,
   listPublishedPostsQuery,
+  searchPublishedPostsQuery,
 } from '#/lib/queries'
 import { COLLECTIONS, DATABASE_ID } from '#/lib/blog-schema'
 import { getServerTorchwood } from './torchwood.server'
@@ -48,6 +51,86 @@ export async function fetchPublishedPostsByTag(tagId: string, cursor?: string): 
   const q = listPublishedPostsByTagQuery(tagId, PAGE_SIZE, cursor)
   const result = await tw.server.databases.listDocuments(q.databaseId, q.collectionId, q.params)
   return parsePage(result, parsePost)
+}
+
+/** 空查询串直接返回空页，不打到数据库。 */
+export async function fetchSearchPosts(term: string, cursor?: string): Promise<Page<Post>> {
+  const trimmed = term.trim()
+  if (!trimmed) return { items: [], nextCursor: null }
+  await ensureBlogReady()
+  const tw = getServerTorchwood()
+  const q = searchPublishedPostsQuery(trimmed, PAGE_SIZE, cursor)
+  const result = await tw.server.databases.listDocuments(q.databaseId, q.collectionId, q.params)
+  return parsePage(result, parsePost)
+}
+
+/** 相邻文章导航：先解析当前文章拿到 published_at，再各取相邻一篇。 */
+export interface PostNeighbors {
+  newer: { slug: string; title: string } | null
+  older: { slug: string; title: string } | null
+}
+
+export async function fetchAdjacentPosts(slug: string): Promise<PostNeighbors> {
+  await ensureBlogReady()
+  const tw = getServerTorchwood()
+  const q = getPostBySlugQuery(slug)
+  const found = await tw.server.databases.listDocuments(q.databaseId, q.collectionId, q.params)
+  const doc = found.documents[0]
+  if (!doc) return { newer: null, older: null }
+  const post = parsePost(doc)
+  if (!post.publishedAt) return { newer: null, older: null }
+
+  const newerQ = adjacentNewerPostQuery(post.publishedAt)
+  const olderQ = adjacentOlderPostQuery(post.publishedAt)
+  const [newerResult, olderResult] = await Promise.all([
+    tw.server.databases.listDocuments(newerQ.databaseId, newerQ.collectionId, newerQ.params),
+    tw.server.databases.listDocuments(olderQ.databaseId, olderQ.collectionId, olderQ.params),
+  ])
+  const toRef = (target: typeof newerResult.documents[number] | undefined) =>
+    target ? { slug: parsePost(target).slug, title: parsePost(target).title } : null
+  return {
+    newer: toRef(newerResult.documents[0]),
+    older: toRef(olderResult.documents[0]),
+  }
+}
+
+/** 归档条目：全量已发布文章的最小展示面（title/slug/publishedAt/category_id）。 */
+export interface ArchiveEntry {
+  slug: string
+  title: string
+  publishedAt: string
+  categoryId: string
+}
+
+export async function fetchArchive(): Promise<ArchiveEntry[]> {
+  await ensureBlogReady()
+  const tw = getServerTorchwood()
+  const entries: ArchiveEntry[] = []
+  let cursor: string | undefined
+  do {
+    const result = await tw.server.databases.listDocuments(DATABASE_ID, COLLECTIONS.posts, {
+      query: {
+        filter: { isNotNull: { attribute: 'published_at' } },
+        orders: [{ attribute: 'published_at', desc: true }],
+        select: ['title', 'slug', 'published_at', 'category_id'],
+        pageSize: 100,
+        ...(cursor ? { pageToken: cursor } : {}),
+      },
+    })
+    for (const doc of result.documents) {
+      const post = parsePost(doc)
+      if (post.publishedAt) {
+        entries.push({
+          slug: post.slug,
+          title: post.title,
+          publishedAt: post.publishedAt,
+          categoryId: post.categoryId,
+        })
+      }
+    }
+    cursor = result.meta?.next_page_token || undefined
+  } while (cursor)
+  return entries
 }
 
 export interface PostDetail {

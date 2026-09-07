@@ -42,6 +42,9 @@ export interface Comment {
   id: string
   postId: string
   content: string
+  /** 评论者展示名（创建时冗余写入；历史数据可能为空）。 */
+  authorId: string | null
+  authorName: string | null
   createdAt: string
   version: number
 }
@@ -119,6 +122,8 @@ export function parseComment(doc: Document): Comment {
     id: doc.id,
     postId: str(doc, 'post_id'),
     content: str(doc, 'content'),
+    authorId: optStr(doc, 'author_id'),
+    authorName: optStr(doc, 'author_name'),
     createdAt: doc.created_at,
     version: parseVersion(doc.version),
   }

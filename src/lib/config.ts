@@ -12,13 +12,19 @@ export interface PublicConfig {
   projectId: string
   siteName: string
   siteUrl: string
+  /** 站点一句话简介（首页 hero、SEO description、OG）。 */
+  siteDescription: string
+  /** 页脚备案/版权附注（可选，如 ICP 号）。 */
+  siteFooterNote: string
 }
 
 const DEFAULTS: PublicConfig = {
   endpoint: 'http://localhost:9080',
   projectId: 'blog',
-  siteName: 'Torchwood Blog',
+  siteName: 'Blog',
   siteUrl: 'http://localhost:3000',
+  siteDescription: '记录、思考与分享',
+  siteFooterNote: '',
 }
 
 declare global {
@@ -47,6 +53,8 @@ function fromBakedEnv(): Partial<PublicConfig> {
     projectId: pick(baked.VITE_TORCHWOOD_PROJECT_ID),
     siteName: pick(baked.VITE_SITE_NAME),
     siteUrl: pick(baked.VITE_SITE_URL),
+    siteDescription: pick(baked.VITE_SITE_DESCRIPTION),
+    siteFooterNote: pick(baked.VITE_SITE_FOOTER_NOTE),
   }
 }
 
@@ -59,6 +67,8 @@ function fromProcessEnv(): Partial<PublicConfig> {
     projectId: pick(env['VITE_TORCHWOOD_PROJECT_ID']) ?? pick(env['BLOG_TORCHWOOD_PROJECT_ID']),
     siteName: pick(env['VITE_SITE_NAME']),
     siteUrl: pick(env['VITE_SITE_URL']),
+    siteDescription: pick(env['VITE_SITE_DESCRIPTION']),
+    siteFooterNote: pick(env['VITE_SITE_FOOTER_NOTE']),
   }
 }
 

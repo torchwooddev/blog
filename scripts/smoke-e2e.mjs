@@ -55,7 +55,7 @@ const draft = await author.databases.createDocument(DB, 'posts', {
     slug,
     content: '# 冒烟\n\n由 smoke-e2e 创建。',
     category_id: 'cat-tech',
-    tag_ids: ['tag-torchwood'],
+    tag_ids: ['tag-engineering'],
   },
 })
 check('2. 创建草稿（默认私有，version=1）', String(draft.version ?? '1') === '1', `version=${JSON.stringify(draft.version)}`)
@@ -68,7 +68,7 @@ check('3. Server 面看不见草稿（防枚举）', srvSeen.documents.length ==
 
 // 4. 访客（另一终端用户）也看不见
 const visitorSeen = await visitor.databases.listDocuments(DB, 'posts', {
-  query: { filter: { containsAny: { attribute: 'tag_ids', values: ['tag-torchwood'] } }, pageSize: 100 },
+  query: { filter: { containsAny: { attribute: 'tag_ids', values: ['tag-engineering'] } }, pageSize: 100 },
 })
 check('4. 他人视角看不见草稿', !visitorSeen.documents.some((d) => d.id === draft.id))
 

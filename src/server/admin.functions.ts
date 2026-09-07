@@ -79,6 +79,32 @@ export const deleteCategory = createServerFn({ method: 'POST' })
     }
   })
 
+/** 重命名分类（slug 保持不变，避免破坏已有链接）。 */
+export const renameCategory = createServerFn({ method: 'POST' })
+  .validator((input: unknown) => {
+    const raw = (input ?? {}) as { categoryId?: unknown; name?: unknown }
+    return {
+      categoryId: typeof raw.categoryId === 'string' ? raw.categoryId : '',
+      name: typeof raw.name === 'string' ? raw.name.trim() : '',
+    }
+  })
+  .handler(async ({ data }): Promise<{ ok: true } | { ok: false; message: string }> => {
+    if (!data.categoryId) return { ok: false, message: 'categoryId 不能为空。' }
+    if (!data.name) return { ok: false, message: '分类名不能为空。' }
+    await ensureBlogReady()
+    const tw = getServerTorchwood()
+    try {
+      const doc = await tw.server.databases.getDocument(DATABASE_ID, COLLECTIONS.categories, data.categoryId)
+      await tw.server.databases.updateDocument(DATABASE_ID, COLLECTIONS.categories, data.categoryId, {
+        data: { name: data.name },
+        version: parseVersion(doc.version),
+      })
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, message: e instanceof Error ? e.message : String(e) }
+    }
+  })
+
 export const cleanupCommentsForPost = createServerFn({ method: 'POST' })
   .validator((input: unknown) => {
     const raw = (input ?? {}) as { postId?: unknown }

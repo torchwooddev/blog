@@ -1,9 +1,29 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link, useBlocker, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Eye, FileUp, Loader2, Paperclip, Save, Trash2, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  Check,
+  Eye,
+  ExternalLink,
+  FileUp,
+  Loader2,
+  Paperclip,
+  Save,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { toast } from 'sonner'
-import { Alert, AlertDescription, AlertTitle } from '#/components/ui/alert'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '#/components/ui/alert-dialog'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
@@ -16,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '#/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Textarea } from '#/components/ui/textarea'
 import {
   createDraft,
@@ -27,8 +48,8 @@ import {
   type DraftInput,
 } from '#/lib/admin-client'
 import { describeError } from '#/lib/errors'
-import { formatBytes } from '#/lib/format'
-import { renderMarkdown } from '#/lib/markdown'
+import { formatBytes, formatDate } from '#/lib/format'
+import { renderArticleHtml, countWords, readingMinutes } from '#/lib/post-utils'
 import { categoriesOptions, filesOptions, tagsOptions } from '#/lib/query-options'
 import { slugify } from '#/lib/types'
 import { cleanupCommentsForPost } from '#/server/admin.functions'
@@ -56,7 +77,7 @@ function toState(post: Post | null): EditorState {
   return {
     title: post?.title ?? '',
     slug: post?.slug ?? '',
-    content: post?.content ?? '## 标题\n\n用 **markdown** 写点什么……\n',
+    content: post?.content ?? '',
     categoryId: post?.categoryId ?? '',
     tagIds: post?.tagIds ?? [],
     attachmentIds: post?.attachmentIds ?? [],
@@ -65,12 +86,19 @@ function toState(post: Post | null): EditorState {
   }
 }
 
+/** 参与脏检查的内容字段（slugTouched/preview 不算正文变更）。 */
+function contentOf(state: EditorState): string {
+  return JSON.stringify([state.title, state.slug, state.content, state.categoryId, state.tagIds, state.attachmentIds])
+}
+
 export function PostEditor({ post }: PostEditorProps) {
   const auth = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [state, setState] = useState<EditorState>(() => toState(post))
   const [savedPost, setSavedPost] = useState<Post | null>(post)
+  const [savedSnapshot, setSavedSnapshot] = useState(() => contentOf(toState(post)))
+  const [pendingDelete, setPendingDelete] = useState(false)
 
   const categories = useQuery(categoriesOptions())
   const tags = useQuery(tagsOptions())
@@ -81,9 +109,27 @@ export function PostEditor({ post }: PostEditorProps) {
   useEffect(() => {
     setState(toState(post))
     setSavedPost(post)
+    applySnapshot(contentOf(toState(post)))
   }, [post])
 
+  const isDirty = contentOf(state) !== savedSnapshot
+
   const patch = (next: Partial<EditorState>) => setState((prev) => ({ ...prev, ...next }))
+
+  // 未保存离开守卫：路由内拦截（enableBeforeUnload 默认同时拦截关闭/刷新）。
+  // 守卫读 ref 而非 state：保存成功后立即放行内部跳转（setState 尚未 flush 时守卫也能看到新快照）。
+  const stateRef = useRef(state)
+  stateRef.current = state
+  const savedSnapshotRef = useRef(savedSnapshot)
+  const applySnapshot = (next: string) => {
+    savedSnapshotRef.current = next
+    setSavedSnapshot(next)
+  }
+  const blocker = useBlocker({
+    shouldBlockFn: () => contentOf(stateRef.current) !== savedSnapshotRef.current,
+    withResolver: true,
+  })
+  const confirmLeave = blocker.status === 'blocked'
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => uploadAttachment(file),
@@ -101,7 +147,7 @@ export function PostEditor({ post }: PostEditorProps) {
         } else {
           patch({ content: `${state.content}\n${snippet}\n` })
         }
-        toast.success('图片已上传并插入 markdown')
+        toast.success('图片已上传并插入正文')
       } else {
         toast.success('附件已上传（保存后随文章展示下载链接）')
       }
@@ -120,16 +166,20 @@ export function PostEditor({ post }: PostEditorProps) {
   const saveMutation = useMutation({
     mutationFn: async (input: DraftInput) => {
       if (savedPost) {
-        const updated = await updatePostContent(savedPost, input)
-        return updated
+        return updatePostContent(savedPost, input)
       }
-      const created = await createDraft(input)
-      return created
+      return createDraft(input)
     },
-    onSuccess: (updated) => {
+    onSuccess: (updated, input) => {
       setSavedPost(updated)
+      applySnapshot(
+        contentOf({
+          ...toState(updated),
+          content: input.content,
+        }),
+      )
       setState((prev) => ({ ...prev, slugTouched: true }))
-      toast.success('已保存（OCC version 校验通过）')
+      toast.success('已保存')
       // 新建后跳到编辑路由（URL 与文档对齐）。
       if (!post) void navigate({ to: '/admin/$postId', params: { postId: updated.id }, replace: true })
     },
@@ -141,7 +191,7 @@ export function PostEditor({ post }: PostEditorProps) {
       publish ? publishPost(target, auth.account?.id ?? '') : unpublishPost(target, auth.account?.id ?? ''),
     onSuccess: (updated, { publish }) => {
       setSavedPost(updated)
-      toast.success(publish ? '已发布（read:any ACE 已授予）' : '已撤回（回到创建者私有）')
+      toast.success(publish ? '已发布，文章现已公开可见' : '已撤回，文章回到仅自己可见')
       void queryClient.invalidateQueries({ queryKey: ['posts'] })
     },
     onError: (e: unknown) => toast.error(describeError(e)),
@@ -151,50 +201,89 @@ export function PostEditor({ post }: PostEditorProps) {
     mutationFn: async (target: Post) => {
       const cleanup = await cleanupCommentsForPost({ data: { postId: target.id } })
       if (!cleanup.ok) throw new Error(cleanup.message)
-      // 删除协议的存储级联：清理文章的附件对象（Server 面 deleteFile）。
+      // 删除协议的存储级联：清理文章的附件对象。
       if (target.attachmentIds.length > 0) {
         await deleteStorageFiles({ data: { fileIds: target.attachmentIds } })
       }
       await deletePost(target)
     },
     onSuccess: () => {
-      toast.success('文章已删除（评论与附件已级联清理）')
+      toast.success('文章已删除')
       void navigate({ to: '/admin', replace: true })
     },
     onError: (e: unknown) => toast.error(describeError(e)),
   })
 
-  const previewHtml = useMemo(() => renderMarkdown(state.content), [state.content])
+  const previewHtml = useMemo(() => renderArticleHtml(state.content), [state.content])
   const busy = saveMutation.isPending || publishMutation.isPending || deleteMutation.isPending
   const canSave = state.title.trim().length > 0 && state.slug.trim().length > 0 && state.categoryId !== '' && !busy
+  const words = countWords(state.content)
+
+  const save = () => {
+    if (!canSave) return
+    saveMutation.mutate({
+      title: state.title.trim(),
+      slug: state.slug.trim(),
+      content: state.content,
+      categoryId: state.categoryId,
+      tagIds: state.tagIds,
+      attachmentIds: state.attachmentIds,
+    })
+  }
+
+  // ⌘S / Ctrl+S 保存。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        if (canSave) save()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">{savedPost ? '编辑文章' : '新建文章'}</h1>
-          <p className="text-sm text-muted-foreground">
-            保存即创建<strong>草稿</strong>——文档级 ACL 下只有你能看见它；发布才公开。
-          </p>
+        <div className="flex items-center gap-3">
+          <Button asChild variant="ghost" size="icon" aria-label="返回列表">
+            <Link to="/admin">
+              <ArrowLeft className="size-4" />
+            </Link>
+          </Button>
+          <div className="space-y-0.5">
+            <h1 className="text-xl font-bold tracking-tight">{savedPost ? '编辑文章' : '新建文章'}</h1>
+            <p className="text-xs text-muted-foreground">
+              {savedPost?.publishedAt
+                ? `发布于 ${formatDate(savedPost.publishedAt)}`
+                : '草稿保存后仅自己可见，发布后公开'}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/admin">返回列表</Link>
-          </Button>
           {savedPost?.publishedAt ? (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={busy}
-              onClick={() => savedPost && publishMutation.mutate({ target: savedPost, publish: false })}
-            >
-              <Eye className="size-4" />
-              撤回发布
-            </Button>
+            <>
+              <Button asChild variant="outline" size="sm">
+                <a href={`/posts/${savedPost.slug}`} target="_blank" rel="noreferrer">
+                  <ExternalLink className="size-4" />
+                  查看
+                </a>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={() => savedPost && publishMutation.mutate({ target: savedPost, publish: false })}
+              >
+                <Eye className="size-4" />
+                撤回发布
+              </Button>
+            </>
           ) : savedPost ? (
             <Button
               size="sm"
-              disabled={busy}
+              disabled={busy || isDirty}
               onClick={() => savedPost && publishMutation.mutate({ target: savedPost, publish: true })}
             >
               <Eye className="size-4" />
@@ -203,10 +292,11 @@ export function PostEditor({ post }: PostEditorProps) {
           ) : null}
           {savedPost ? (
             <Button
-              variant="destructive"
+              variant="ghost"
               size="sm"
+              className="text-destructive hover:text-destructive"
               disabled={busy}
-              onClick={() => savedPost && deleteMutation.mutate(savedPost)}
+              onClick={() => setPendingDelete(true)}
             >
               <Trash2 className="size-4" />
               删除
@@ -215,46 +305,18 @@ export function PostEditor({ post }: PostEditorProps) {
         </div>
       </header>
 
-      {savedPost?.publishedAt ? (
-        <Alert>
-          <AlertTitle>已发布 · {savedPost.publishedAt}</AlertTitle>
-          <AlertDescription>
-            文档 ACE：<code className="rounded bg-muted px-1">{savedPost.permissions.join(', ')}</code> ——
-            read:any 让任何访问者（包括 Server 面的 SSR/API Key）可见。
-          </AlertDescription>
-        </Alert>
-      ) : savedPost ? (
-        <Alert>
-          <AlertTitle>草稿（创建者私有）</AlertTitle>
-          <AlertDescription>
-            空 ACE 种子只授予 <code className="rounded bg-muted px-1">user:{auth.account?.id}</code>
-            ；公开列表、RSS、其他用户都看不到这篇文章。
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-          <Card>
-            <CardHeader className="flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-base">正文（Markdown）</CardTitle>
-              <div className="flex items-center gap-1 text-sm">
-                <Button
-                  variant={state.preview ? 'ghost' : 'secondary'}
-                  size="sm"
-                  onClick={() => patch({ preview: false })}
-                >
+      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+        <Card className="gap-0 overflow-hidden py-0">
+          <Tabs value={state.preview ? 'preview' : 'write'} onValueChange={(v) => patch({ preview: v === 'preview' })}>
+            <div className="flex items-center justify-between border-b py-1.5 pr-3 pl-3">
+              <TabsList className="h-8 bg-transparent p-0">
+                <TabsTrigger value="write" className="px-3 data-[state=active]:shadow-none">
                   编辑
-                </Button>
-                <Button
-                  variant={state.preview ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => patch({ preview: true })}
-                >
+                </TabsTrigger>
+                <TabsTrigger value="preview" className="px-3 data-[state=active]:shadow-none">
                   预览
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
+                </TabsTrigger>
+              </TabsList>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -265,38 +327,83 @@ export function PostEditor({ post }: PostEditorProps) {
               />
               <Button
                 variant="outline"
-                size="sm"
+                size="xs"
                 disabled={uploadMutation.isPending}
                 onClick={() => fileInputRef.current?.click()}
               >
                 {uploadMutation.isPending ? (
-                  <Loader2 className="size-4 animate-spin" />
+                  <Loader2 className="size-3.5 animate-spin" />
                 ) : (
-                  <FileUp className="size-4" />
+                  <FileUp className="size-3.5" />
                 )}
                 上传图片 / 附件
               </Button>
-              {state.preview ? (
+            </div>
+            <TabsContent value="write" className="mt-0">
+              <Textarea
+                ref={textareaRef}
+                className="min-h-[26rem] rounded-none border-0 font-mono text-sm shadow-none focus-visible:ring-0"
+                value={state.content}
+                onChange={(e) => patch({ content: e.target.value })}
+                placeholder={'用 Markdown 写作……\n\n## 标题\n\n正文支持 **加粗**、列表、代码块与图片。'}
+                spellCheck={false}
+              />
+            </TabsContent>
+            <TabsContent value="preview" className="mt-0">
+              {state.content.trim() ? (
                 <div
-                  className="prose prose-zinc dark:prose-invert max-w-none min-h-72"
+                  className="prose prose-zinc dark:prose-invert max-w-none px-6 py-5"
                   dangerouslySetInnerHTML={{ __html: previewHtml }}
                 />
               ) : (
-                <Textarea
-                  ref={textareaRef}
-                  className="min-h-72 font-mono text-sm"
-                  value={state.content}
-                  onChange={(e) => patch({ content: e.target.value })}
-                  spellCheck={false}
-                />
+                <p className="py-24 text-center text-sm text-muted-foreground">暂无内容可预览</p>
               )}
-            </CardContent>
-          </Card>
+            </TabsContent>
+          </Tabs>
+          <div className="flex items-center justify-between border-t px-4 py-2 text-xs text-muted-foreground">
+            <span>
+              {words} 字 · 约 {readingMinutes(state.content)} 分钟
+            </span>
+            <span className="hidden sm:inline">⌘S 快速保存</span>
+          </div>
+        </Card>
 
         <div className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">元信息</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">发布状态</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2">
+                {savedPost?.publishedAt ? (
+                  <Badge className="bg-primary/10 text-primary">已发布</Badge>
+                ) : savedPost ? (
+                  <Badge variant="secondary">草稿</Badge>
+                ) : (
+                  <Badge variant="secondary">未保存</Badge>
+                )}
+                {isDirty ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                    <span className="size-1.5 rounded-full bg-current" />
+                    有未保存的修改
+                  </span>
+                ) : savedPost ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <Check className="size-3" />
+                    已是最新
+                  </span>
+                ) : null}
+              </div>
+              <Button className="w-full" disabled={!canSave} onClick={save}>
+                {saveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                {savedPost ? '保存修改' : '保存为草稿'}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">元信息</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -310,18 +417,23 @@ export function PostEditor({ post }: PostEditorProps) {
                       slug: state.slugTouched ? state.slug : slugify(e.target.value),
                     })
                   }
+                  placeholder="文章标题"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="slug">Slug（唯一索引）</Label>
+                <Label htmlFor="slug" className="flex items-center justify-between">
+                  Slug
+                  <span className="text-xs font-normal text-muted-foreground">/posts/&lt;slug&gt;</span>
+                </Label>
                 <Input
                   id="slug"
                   value={state.slug}
                   onChange={(e) => patch({ slug: slugify(e.target.value), slugTouched: true })}
+                  placeholder="自动按标题生成"
                 />
               </div>
               <div className="space-y-2">
-                <Label>分类（1:N 引用属性）</Label>
+                <Label>分类</Label>
                 <Select
                   value={state.categoryId}
                   onValueChange={(value) => patch({ categoryId: value })}
@@ -339,7 +451,7 @@ export function PostEditor({ post }: PostEditorProps) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>标签（M:N 数组属性）</Label>
+                <Label>标签</Label>
                 <div className="flex flex-wrap gap-1.5">
                   {(tags.data ?? []).map((tag) => {
                     const active = state.tagIds.includes(tag.id)
@@ -356,19 +468,19 @@ export function PostEditor({ post }: PostEditorProps) {
                           })
                         }
                       >
-                        <Badge variant={active ? 'default' : 'outline'} className="hover:bg-accent">
+                        <Badge
+                          variant={active ? 'default' : 'outline'}
+                          className="font-normal transition-colors hover:bg-accent"
+                        >
                           #{tag.name}
                         </Badge>
                       </button>
                     )
                   })}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  已保存文章的标签变更走 <code className="rounded bg-muted px-1">arrayUpdates</code>（APPEND/REMOVE 原子算子）。
-                </p>
               </div>
               <div className="space-y-2">
-                <Label>附件（Storage 公开桶）</Label>
+                <Label>附件</Label>
                 {(attachments.data ?? []).length > 0 || state.attachmentIds.length > 0 ? (
                   <ul className="space-y-1.5">
                     {state.attachmentIds.map((id) => {
@@ -402,37 +514,67 @@ export function PostEditor({ post }: PostEditorProps) {
                     })}
                   </ul>
                 ) : (
-                  <p className="text-xs text-muted-foreground">
-                    图片会以内联 markdown 插入正文；其他文件保存后出现在文章附件区。
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    图片会以内联形式插入正文；其他文件保存后出现在文章附件区。
                   </p>
                 )}
               </div>
             </CardContent>
           </Card>
-
-          <Button className="w-full" disabled={!canSave} onClick={save}>
-            {saveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-            {savedPost ? '保存修改' : '保存为草稿'}
-          </Button>
-          {savedPost ? (
-            <p className="text-center text-xs text-muted-foreground">
-              文档 {savedPost.id} · OCC v{savedPost.version}
-            </p>
-          ) : null}
         </div>
       </div>
+
+      {/* 删除确认 */}
+      <AlertDialog open={pendingDelete} onOpenChange={setPendingDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除这篇文章？</AlertDialogTitle>
+            <AlertDialogDescription>
+              将同时删除它的全部评论与附件，操作不可恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault()
+                if (savedPost) deleteMutation.mutate(savedPost)
+                setPendingDelete(false)
+              }}
+            >
+              {deleteMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+              确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 未保存离开确认 */}
+      <AlertDialog
+        open={confirmLeave}
+        onOpenChange={(open) => {
+          if (!open && blocker.status === 'blocked') blocker.reset()
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>有未保存的修改</AlertDialogTitle>
+            <AlertDialogDescription>离开当前页面将丢失未保存的内容，确定要离开吗？</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => blocker.status === 'blocked' && blocker.reset()}>
+              留在本页
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => blocker.status === 'blocked' && blocker.proceed()}
+            >
+              放弃修改并离开
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
-
-  function save() {
-    if (!canSave) return
-    saveMutation.mutate({
-      title: state.title.trim(),
-      slug: state.slug.trim(),
-      content: state.content,
-      categoryId: state.categoryId,
-      tagIds: state.tagIds,
-      attachmentIds: state.attachmentIds,
-    })
-  }
 }

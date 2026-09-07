@@ -39,6 +39,28 @@ export const getPublishedPostsByTag = createServerFn({ method: 'GET' })
     return pub.fetchPublishedPostsByTag(data.tagId, data.cursor)
   })
 
+export const searchPosts = createServerFn({ method: 'GET' })
+  .validator((input: unknown) => {
+    const raw = (input ?? {}) as { q?: unknown; cursor?: unknown }
+    return {
+      q: typeof raw.q === 'string' ? raw.q : '',
+      cursor: typeof raw.cursor === 'string' && raw.cursor !== '' ? raw.cursor : undefined,
+    }
+  })
+  .handler(async ({ data }) => pub.fetchSearchPosts(data.q, data.cursor))
+
+export const getAdjacentPosts = createServerFn({ method: 'GET' })
+  .validator((input: unknown) => {
+    const raw = (input ?? {}) as { slug?: unknown }
+    return { slug: typeof raw.slug === 'string' ? raw.slug : '' }
+  })
+  .handler(async ({ data }) => {
+    if (!data.slug) return { newer: null, older: null }
+    return pub.fetchAdjacentPosts(data.slug)
+  })
+
+export const getArchive = createServerFn({ method: 'GET' }).handler(() => pub.fetchArchive())
+
 export const getPostDetail = createServerFn({ method: 'GET' })
   .validator((input: unknown) => {
     const raw = (input ?? {}) as { slug?: unknown }

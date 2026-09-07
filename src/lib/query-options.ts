@@ -2,11 +2,14 @@ import { queryOptions } from '@tanstack/react-query'
 import {
   getAllCategories,
   getAllTags,
+  getAdjacentPosts,
+  getArchive,
   getComments,
   getPostDetail,
   getPublishedPosts,
   getPublishedPostsByCategory,
   getPublishedPostsByTag,
+  searchPosts,
 } from '#/server/public-data.functions'
 import { getFiles } from '#/server/storage.functions'
 
@@ -19,6 +22,24 @@ export const publishedPostsOptions = (cursor?: string) =>
   queryOptions({
     queryKey: ['posts', 'published', cursor ?? ''],
     queryFn: () => getPublishedPosts({ data: { cursor } }),
+  })
+
+export const searchPostsOptions = (term: string, cursor?: string) =>
+  queryOptions({
+    queryKey: ['posts', 'search', term.trim(), cursor ?? ''],
+    queryFn: () => searchPosts({ data: { q: term, cursor } }),
+  })
+
+export const adjacentPostsOptions = (slug: string) =>
+  queryOptions({
+    queryKey: ['posts', 'adjacent', slug],
+    queryFn: () => getAdjacentPosts({ data: { slug } }),
+  })
+
+export const archiveOptions = () =>
+  queryOptions({
+    queryKey: ['posts', 'archive'],
+    queryFn: () => getArchive(),
   })
 
 export const categoryPostsOptions = (categoryId: string, cursor?: string) =>

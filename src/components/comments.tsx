@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
+import { MessageSquare } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { Alert, AlertDescription, AlertTitle } from '#/components/ui/alert'
+import { Avatar, AvatarFallback } from '#/components/ui/avatar'
 import { Button } from '#/components/ui/button'
-import { Card, CardContent } from '#/components/ui/card'
+import { Skeleton } from '#/components/ui/skeleton'
 import { Textarea } from '#/components/ui/textarea'
 import { DATABASE_ID, COLLECTIONS } from '#/lib/blog-schema'
+import { formatRelative } from '#/lib/format'
 import { describeError } from '#/lib/errors'
 import { runIdempotent } from '#/lib/idempotency'
 import { commentsChannel } from '#/lib/queries'
@@ -26,67 +28,99 @@ export function CommentsSection({ postId }: { postId: string }) {
   const comments = useQuery(commentsOptions(postId))
   useRealtimeComments(postId)
 
+  const count = comments.data?.length ?? 0
   return (
-    <section className="space-y-4" aria-label="评论">
-      <h2 className="text-lg font-semibold">评论（{comments.data?.length ?? 0}）</h2>
+    <section className="space-y-5 border-t pt-8" aria-label="评论">
+      <h2 className="flex items-center gap-2 text-lg font-semibold">
+        <MessageSquare className="size-4.5 text-muted-foreground" />
+        评论 <span className="text-base font-normal text-muted-foreground">（{count}）</span>
+      </h2>
 
       {auth.status === 'signedIn' ? (
         <CommentForm postId={postId} />
       ) : (
-        <Alert>
-          <AlertTitle>想参与讨论？</AlertTitle>
-          <AlertDescription>
-            评论通过浏览器直连 Torchwood Client API 发表，需要先{' '}
-            <Link to="/login" className="font-medium text-primary underline-offset-4 hover:underline">
-              登录
-            </Link>{' '}
-            或{' '}
-            <Link to="/register" className="font-medium text-primary underline-offset-4 hover:underline">
-              注册
-            </Link>
-            。
-          </AlertDescription>
-        </Alert>
+        <div className="flex flex-col items-start justify-between gap-3 rounded-xl border bg-muted/30 p-4 sm:flex-row sm:items-center">
+          <p className="text-sm text-muted-foreground">登录后即可参与讨论。</p>
+          <div className="flex items-center gap-2">
+            <Button asChild size="sm" variant="outline">
+              <Link to="/login">登录</Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link to="/register">注册</Link>
+            </Button>
+          </div>
+        </div>
       )}
 
-      {comments.data && comments.data.length > 0 ? (
-        <ul className="space-y-3">
+      {comments.isLoading ? (
+        <div className="space-y-4">
+          {[0, 1].map((i) => (
+            <div key={i} className="flex gap-3">
+              <Skeleton className="size-8 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-3 w-32" />
+                <Skeleton className="h-4 w-3/4" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : comments.data && comments.data.length > 0 ? (
+        <ul className="space-y-5">
           {comments.data.map((comment) => (
-            <li key={comment.id}>
-              <Card>
-                <CardContent className="flex items-start justify-between gap-4 py-4">
-                  <p className="whitespace-pre-wrap text-sm">{comment.content}</p>
-                  <time className="shrink-0 text-xs text-muted-foreground" dateTime={comment.createdAt}>
-                    {formatDateTime(comment.createdAt)}
+            <li key={comment.id} className="flex gap-3">
+              <CommentAvatar name={comment.authorName} />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span className="text-sm font-medium">{comment.authorName ?? '匿名读者'}</span>
+                  <time
+                    className="text-xs text-muted-foreground"
+                    dateTime={comment.createdAt}
+                    title={comment.createdAt}
+                  >
+                    {formatRelative(comment.createdAt)}
                   </time>
-                </CardContent>
-              </Card>
+                </div>
+                <p className="mt-1 whitespace-pre-wrap text-sm leading-6">{comment.content}</p>
+              </div>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-muted-foreground">还没有评论，来抢沙发。</p>
+        <p className="rounded-xl border border-dashed py-8 text-center text-sm text-muted-foreground">
+          还没有评论，来抢沙发。
+        </p>
       )}
     </section>
   )
 }
 
-function formatDateTime(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+function CommentAvatar({ name }: { name: string | null }) {
+  const initial = (name ?? '?').trim().slice(0, 1).toUpperCase()
+  return (
+    <Avatar className="size-8">
+      <AvatarFallback className="bg-primary/10 text-primary">{initial}</AvatarFallback>
+    </Avatar>
+  )
 }
 
 function CommentForm({ postId }: { postId: string }) {
   const queryClient = useQueryClient()
+  const auth = useAuth()
   const [content, setContent] = useState('')
+
+  const displayName = auth.account?.name || auth.account?.email || null
 
   const mutation = useMutation({
     // 写幂等：同一次提交（含网络层重试）共用一个 Idempotency-Key。
     mutationFn: (text: string) =>
       runIdempotent(() =>
         tw.databases.createDocument(DATABASE_ID, COLLECTIONS.comments, {
-          data: { post_id: postId, content: text },
+          data: {
+            post_id: postId,
+            content: text,
+            ...(auth.account ? { author_id: auth.account.id } : {}),
+            ...(displayName ? { author_name: displayName } : {}),
+          },
         }),
       ),
     onMutate: (text) => {
@@ -94,6 +128,8 @@ function CommentForm({ postId }: { postId: string }) {
         id: `optimistic-${Date.now()}`,
         postId,
         content: text,
+        authorId: auth.account?.id ?? null,
+        authorName: displayName,
         createdAt: new Date().toISOString(),
         version: 1,
       }
@@ -110,29 +146,32 @@ function CommentForm({ postId }: { postId: string }) {
   })
 
   return (
-    <form
-      className="space-y-2"
-      onSubmit={(e) => {
-        e.preventDefault()
-        const text = content.trim()
-        if (!text) return
-        mutation.mutate(text, {
-          onSuccess: () => setContent(''),
-        })
-      }}
-    >
-      <Textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder="写下你的评论……"
-        rows={3}
-      />
-      <div className="flex justify-end">
-        <Button type="submit" size="sm" disabled={mutation.isPending || content.trim().length === 0}>
-          发表评论
-        </Button>
-      </div>
-    </form>
+    <div className="flex gap-3">
+      <CommentAvatar name={displayName} />
+      <form
+        className="flex-1 space-y-2"
+        onSubmit={(e) => {
+          e.preventDefault()
+          const text = content.trim()
+          if (!text) return
+          mutation.mutate(text, {
+            onSuccess: () => setContent(''),
+          })
+        }}
+      >
+        <Textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="写下你的评论……"
+          rows={3}
+        />
+        <div className="flex justify-end">
+          <Button type="submit" size="sm" disabled={mutation.isPending || content.trim().length === 0}>
+            发表评论
+          </Button>
+        </div>
+      </form>
+    </div>
   )
 }
 

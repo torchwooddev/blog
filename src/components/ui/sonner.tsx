@@ -1,5 +1,6 @@
 "use client"
 
+import { useTheme } from "next-themes"
 import {
   CircleCheckIcon,
   InfoIcon,
@@ -9,11 +10,13 @@ import {
 } from "lucide-react"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 
-// 与 scaffold 版本的差异：不依赖 next-themes（本站不做主题切换），固定跟随系统。
+// 主题切换已启用：toast 跟随当前解析主题。
 const Toaster = ({ ...props }: ToasterProps) => {
+  const { resolvedTheme } = useTheme()
+
   return (
     <Sonner
-      theme="system"
+      theme={(resolvedTheme === 'dark' ? 'dark' : 'light') as ToasterProps['theme']}
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" />,

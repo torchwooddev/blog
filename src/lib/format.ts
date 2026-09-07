@@ -20,6 +20,21 @@ export function formatDateTime(iso: string | null): string {
   })
 }
 
+/** 相对时间（评论/列表用）：1 小时内、24 小时内、30 天内、超过则回退绝对日期。 */
+export function formatRelative(iso: string): string {
+  const t = new Date(iso).getTime()
+  if (Number.isNaN(t)) return iso
+  const diff = Date.now() - t
+  const minute = 60_000
+  const hour = 60 * minute
+  const day = 24 * hour
+  if (diff < minute) return '刚刚'
+  if (diff < hour) return `${Math.floor(diff / minute)} 分钟前`
+  if (diff < day) return `${Math.floor(diff / hour)} 小时前`
+  if (diff < 30 * day) return `${Math.floor(diff / day)} 天前`
+  return formatDate(iso)
+}
+
 /** HTML meta 用的时间格式（保持 RFC3339 原样即可）。 */
 export function isoNow(): string {
   return new Date().toISOString()

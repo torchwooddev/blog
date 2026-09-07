@@ -112,6 +112,10 @@ export const COLLECTION_DEFS: CollectionDef[] = [
     attributes: [
       { key: 'post_id', type: 'string', required: true },
       { key: 'content', type: 'string', required: true },
+      // 评论者身份（可选，展示用）：创建时由客户端从当前账号快照冗余写入——
+      // 终端用户无法列举其他账号，因此存展示名而非只存不可解析的 id。
+      { key: 'author_id', type: 'string' },
+      { key: 'author_name', type: 'string' },
     ],
     indexes: [{ id: 'by_post', type: 'key', attributes: ['post_id'] }],
   },

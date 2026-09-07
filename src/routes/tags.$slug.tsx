@@ -3,10 +3,10 @@ import { createFileRoute, notFound, redirect } from '@tanstack/react-router'
 import { DataLoaderError, PostList, TaxonomySidebar } from '#/components/post-list'
 import { getTagBySlug } from '#/server/public-data.functions'
 import { categoriesOptions, tagsOptions, tagPostsOptions } from '#/lib/query-options'
+import { publicConfig } from '#/lib/config'
 
 /**
- * 标签过滤页：slug → id 两段式解析 + containsAny("tag_ids", [id])——
- * M:N 数组属性的成员判断（contains 是模糊匹配，不能用在这里）。
+ * 标签过滤页：slug → id 两段式解析 + 数组成员判断（M:N 数组属性）。
  */
 export const Route = createFileRoute('/tags/$slug')({
   validateSearch: (search: Record<string, unknown>): { cursor?: string } => ({
@@ -31,9 +31,20 @@ export const Route = createFileRoute('/tags/$slug')({
     ])
     return { tag }
   },
-  head: ({ loaderData }) => ({
-    meta: [{ title: loaderData ? `标签：${loaderData.tag.name}` : '标签' }],
-  }),
+  head: ({ loaderData }) => {
+    const name = loaderData ? loaderData.tag.name : undefined
+    return {
+      meta: [
+        { title: name ? `标签：${name} · ${publicConfig.siteName}` : `标签 · ${publicConfig.siteName}` },
+        ...(name ? [{ name: 'description', content: `${publicConfig.siteName} 中标记为「${name}」的全部文章。` }] : []),
+        { property: 'og:type', content: 'website' },
+        ...(name ? [{ property: 'og:title', content: `标签：${name}` }] : []),
+      ],
+      links: loaderData
+        ? [{ rel: 'canonical', href: `${publicConfig.siteUrl}/tags/${loaderData.tag.slug}` }]
+        : [],
+    }
+  },
   component: TagPage,
 })
 
@@ -43,22 +54,18 @@ function TagPage() {
   const page = useQuery({ ...tagPostsOptions(tag.id, cursor), placeholderData: keepPreviousData })
 
   return (
-    <div className="grid gap-10 lg:grid-cols-[1fr_240px]">
-      <section className="space-y-6">
-        <header className="space-y-1">
-          <p className="text-sm text-muted-foreground">标签</p>
-          <h1 className="text-2xl font-bold tracking-tight">#{tag.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            slug <code className="rounded bg-muted px-1">{tag.slug}</code> → 文档{' '}
-            <code className="rounded bg-muted px-1">{tag.id}</code>，过滤条件{' '}
-            <code className="rounded bg-muted px-1">containsAny("tag_ids", …)</code>（M:N 数组属性，GIN 自动索引）。
-          </p>
+    <div className="grid gap-12 lg:grid-cols-[1fr_220px]">
+      <section className="space-y-8">
+        <header className="space-y-1 border-b pb-6">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">标签</p>
+          <h1 className="text-3xl font-extrabold tracking-tight">#{tag.name}</h1>
         </header>
         {page.isError ? (
           <DataLoaderError error={page.error} />
         ) : (
           <PostList
             page={page.data}
+            cursor={cursor}
             buildPageHref={(c) => ({
               to: '/tags/$slug',
               params: { slug: tag.slug },

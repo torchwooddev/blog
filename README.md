@@ -87,6 +87,8 @@ npm run test         # vitest（错误映射 / markdown 消毒 / 版本归一化
 | `VITE_TORCHWOOD_ENDPOINT` | 公开 | 浏览器直连 Client API 的端点；不设时回退读 `BLOG_TORCHWOOD_ENDPOINT` |
 | `VITE_TORCHWOOD_PROJECT_ID` | 公开 | 浏览器侧项目 ID；不设时回退读 `BLOG_TORCHWOOD_PROJECT_ID` |
 | `VITE_SITE_NAME` / `VITE_SITE_URL` | 公开 | 站点名 / 对外绝对地址（OG、RSS、sitemap） |
+| `VITE_SITE_DESCRIPTION` | 公开 | 站点一句话简介（首页 hero、SEO description、OG） |
+| `VITE_SITE_FOOTER_NOTE` | 公开 | 页脚版权附注（可选，如 ICP 备案号），留空不显示 |
 
 `VITE_*` 是**运行时**变量：容器启动后由 `GET /config.js` 注入 `window.__APP_CONFIG__`，
 浏览器端配置随之生效——换环境/项目只需改环境变量重启，**无需重新构建镜像**。

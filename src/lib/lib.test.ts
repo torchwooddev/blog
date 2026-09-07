@@ -97,7 +97,8 @@ describe('publicConfig 运行时解析', () => {
     const c = await load()
     expect(c.endpoint).toBe('http://localhost:9080')
     expect(c.projectId).toBe('blog')
-    expect(c.siteName).toBe('Torchwood Blog')
+    expect(c.siteName).toBe('Blog')
+    expect(c.siteDescription).toBe('记录、思考与分享')
   })
 
   it('服务端 process.env 覆盖默认；公开值缺省时回退 BLOG_* 同名值', async () => {

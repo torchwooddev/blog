@@ -3,9 +3,10 @@ import { createFileRoute, notFound, redirect } from '@tanstack/react-router'
 import { DataLoaderError, PostList, TaxonomySidebar } from '#/components/post-list'
 import { getCategoryBySlug } from '#/server/public-data.functions'
 import { categoriesOptions, categoryPostsOptions, tagsOptions } from '#/lib/query-options'
+import { publicConfig } from '#/lib/config'
 
 /**
- * 分类过滤页：slug → id 两段式解析（先查分类拿 id，再 eq("category_id", id)），
+ * 分类过滤页：slug → id 两段式解析（先查分类拿 id，再按引用属性过滤），
  * 因为服务端没有跨集合 JOIN——解析结果通过 query 缓存复用。
  */
 export const Route = createFileRoute('/categories/$slug')({
@@ -31,12 +32,22 @@ export const Route = createFileRoute('/categories/$slug')({
     ])
     return { category }
   },
-  head: ({ loaderData }) => ({
-    meta: [
-      { title: loaderData ? `分类：${loaderData.category.name}` : '分类' },
-      { property: 'og:type', content: 'website' },
-    ],
-  }),
+  head: ({ loaderData }) => {
+    const name = loaderData ? loaderData.category.name : undefined
+    return {
+      meta: [
+        { title: name ? `${name} 下的文章 · ${publicConfig.siteName}` : `分类 · ${publicConfig.siteName}` },
+        ...(name
+          ? [{ name: 'description', content: `${publicConfig.siteName} 中「${name}」分类下的全部文章。` }]
+          : []),
+        { property: 'og:type', content: 'website' },
+        ...(name ? [{ property: 'og:title', content: `${name} 下的文章` }] : []),
+      ],
+      links: loaderData
+        ? [{ rel: 'canonical', href: `${publicConfig.siteUrl}/categories/${loaderData.category.slug}` }]
+        : [],
+    }
+  },
   component: CategoryPage,
 })
 
@@ -46,22 +57,18 @@ function CategoryPage() {
   const page = useQuery({ ...categoryPostsOptions(category.id, cursor), placeholderData: keepPreviousData })
 
   return (
-    <div className="grid gap-10 lg:grid-cols-[1fr_240px]">
-      <section className="space-y-6">
-        <header className="space-y-1">
-          <p className="text-sm text-muted-foreground">分类</p>
-          <h1 className="text-2xl font-bold tracking-tight">{category.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            slug <code className="rounded bg-muted px-1">{category.slug}</code> → 文档{' '}
-            <code className="rounded bg-muted px-1">{category.id}</code>，两段式解析后按{' '}
-            <code className="rounded bg-muted px-1">eq("category_id", …)</code> 过滤（1:N 引用属性 + key 索引）。
-          </p>
+    <div className="grid gap-12 lg:grid-cols-[1fr_220px]">
+      <section className="space-y-8">
+        <header className="space-y-1 border-b pb-6">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">分类</p>
+          <h1 className="text-3xl font-extrabold tracking-tight">{category.name}</h1>
         </header>
         {page.isError ? (
           <DataLoaderError error={page.error} />
         ) : (
           <PostList
             page={page.data}
+            cursor={cursor}
             buildPageHref={(c) => ({
               to: '/categories/$slug',
               params: { slug: category.slug },
@@ -70,7 +77,7 @@ function CategoryPage() {
           />
         )}
       </section>
-      <TaxonomySidebar />
+      <TaxonomySidebar currentCategorySlug={category.slug} />
     </div>
   )
 }
