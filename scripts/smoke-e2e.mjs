@@ -200,5 +200,73 @@ const gone = await srv.server.databases.listDocuments(DB, 'posts', {
 })
 check('12. 删除协议：级联清理评论 + 删除文章', gone.documents.length === 0)
 
+// 13. Storage：上传附件（走应用的同源代理 /api/upload：JWT 校验 + Server 面 SDK）
+const pngB64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+const form = new FormData()
+form.append('file', new Blob([Buffer.from(pngB64, 'base64')], { type: 'image/png' }), 'smoke-image.png')
+const appBase = process.env['BLOG_APP_BASE_URL'] ?? 'http://localhost:4000'
+const appUpload = await fetch(`${appBase}/api/upload`, {
+  method: 'POST',
+  headers: { authorization: `Bearer ${author.getAccessToken()}` },
+  body: form,
+})
+const uploadPayload = await appUpload.json()
+check(
+  '13. 附件上传（/api/upload 代理：JWT 校验 + 公开桶）',
+  appUpload.status === 200 && uploadPayload.ok === true && !!uploadPayload.file?.id,
+  JSON.stringify(uploadPayload).slice(0, 120),
+)
+
+// 14. 匿名显示：公开桶 view URL 无凭证可读（<img> 的加载方式）
+const fileRef = uploadPayload.file
+const viewRes = await fetch(fileRef.viewUrl)
+check(
+  '14. 附件匿名显示（view URL 200 + image/*）',
+  viewRes.status === 200 && (viewRes.headers.get('content-type') ?? '').startsWith('image/'),
+  fileRef.viewUrl.slice(-40),
+)
+
+// 15. 附件引用随文章保存（草稿 → 用作者自己的 Client 面读回验证）
+const probePost = await author.databases.createDocument(DB, 'posts', {
+  document_id: `smoke-att-${Date.now().toString(36)}`,
+  data: {
+    title: '附件冒烟',
+    slug: `smoke-att-${Date.now().toString(36)}`,
+    content: `![smoke-image.png](${fileRef.viewUrl})`,
+    category_id: 'cat-tech',
+    tag_ids: [],
+    attachment_ids: [fileRef.id],
+  },
+})
+const attSeen = await author.databases.listDocuments(DB, 'posts', {
+  query: { filter: { eq: { attribute: 'slug', values: [String(probePost.data['slug'])] } }, pageSize: 1 },
+})
+check(
+  '15. 附件引用随文章保存（attachment_ids 数组）',
+  attSeen.documents.length === 1 &&
+    Array.isArray(attSeen.documents[0].data['attachment_ids']) &&
+    attSeen.documents[0].data['attachment_ids'][0] === fileRef.id,
+)
+
+// 16. 删除文章 → 应用级联删除附件对象（等价于 UI 的 deleteStorageFiles 步骤）→ 文件 404
+const pf = await author.databases.getDocument(DB, 'posts', probePost.id)
+await author.databases.deleteDocument(DB, 'posts', probePost.id, pf.version ?? 1)
+const bucket = (await srv.server.storage.listBuckets()).find((b) => b.name === 'blog-media')
+await srv.server.storage.deleteFile(bucket.id, fileRef.id)
+const delRes = await fetch(`${fileRef.downloadUrl}`, { method: 'GET' })
+check('16. 附件文件已级联删除（download 404）', delRes.status === 404)
+
+// 17. 未登录者调上传代理 → 401（服务端先校验调用者 JWT）
+const anonUpload = await fetch(`${appBase}/api/upload`, {
+  method: 'POST',
+  body: (() => {
+    const f = new FormData()
+    f.append('file', new Blob(['x'], { type: 'text/plain' }), 'x.txt')
+    return f
+  })(),
+})
+check('17. 未登录上传被拒（/api/upload 校验 JWT）', anonUpload.status === 401)
+
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`)
 process.exit(fail > 0 ? 1 : 0)

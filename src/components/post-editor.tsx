@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useEffect, useMemo, useState } from 'react'
-import { Eye, Loader2, Save, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Eye, FileUp, Loader2, Paperclip, Save, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Alert, AlertDescription, AlertTitle } from '#/components/ui/alert'
 import { Badge } from '#/components/ui/badge'
@@ -23,15 +23,18 @@ import {
   publishPost,
   unpublishPost,
   updatePostContent,
+  uploadAttachment,
   type DraftInput,
 } from '#/lib/admin-client'
 import { describeError } from '#/lib/errors'
+import { formatBytes } from '#/lib/format'
 import { renderMarkdown } from '#/lib/markdown'
-import { categoriesOptions, tagsOptions } from '#/lib/query-options'
+import { categoriesOptions, filesOptions, tagsOptions } from '#/lib/query-options'
 import { slugify } from '#/lib/types'
 import { cleanupCommentsForPost } from '#/server/admin.functions'
+import { deleteStorageFiles } from '#/server/storage.functions'
 import { useAuth } from '#/lib/torchwood-client'
-import type { Post } from '#/lib/types'
+import type { FileRef, Post } from '#/lib/types'
 
 export interface PostEditorProps {
   /** 存在 = 编辑已有文章；否则创建新草稿。 */
@@ -44,6 +47,7 @@ interface EditorState {
   content: string
   categoryId: string
   tagIds: string[]
+  attachmentIds: string[]
   slugTouched: boolean
   preview: boolean
 }
@@ -55,6 +59,7 @@ function toState(post: Post | null): EditorState {
     content: post?.content ?? '## 标题\n\n用 **markdown** 写点什么……\n',
     categoryId: post?.categoryId ?? '',
     tagIds: post?.tagIds ?? [],
+    attachmentIds: post?.attachmentIds ?? [],
     slugTouched: !!post,
     preview: false,
   }
@@ -69,6 +74,9 @@ export function PostEditor({ post }: PostEditorProps) {
 
   const categories = useQuery(categoriesOptions())
   const tags = useQuery(tagsOptions())
+  const attachments = useQuery(filesOptions(state.attachmentIds))
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     setState(toState(post))
@@ -76,6 +84,38 @@ export function PostEditor({ post }: PostEditorProps) {
   }, [post])
 
   const patch = (next: Partial<EditorState>) => setState((prev) => ({ ...prev, ...next }))
+
+  const uploadMutation = useMutation({
+    mutationFn: (file: File) => uploadAttachment(file),
+    onSuccess: (ref: FileRef) => {
+      patch({ attachmentIds: [...state.attachmentIds, ref.id] })
+      if (ref.isImage) {
+        // 图片：把内联 markdown 插到光标处（预览模式下追加到文末）。
+        const snippet = `![${ref.name}](${ref.viewUrl})`
+        const el = textareaRef.current
+        if (el && !state.preview) {
+          const start = el.selectionStart ?? el.value.length
+          const end = el.selectionEnd ?? start
+          const next = `${el.value.slice(0, start)}\n${snippet}\n${el.value.slice(end)}`
+          patch({ content: next })
+        } else {
+          patch({ content: `${state.content}\n${snippet}\n` })
+        }
+        toast.success('图片已上传并插入 markdown')
+      } else {
+        toast.success('附件已上传（保存后随文章展示下载链接）')
+      }
+    },
+    onError: (e: unknown) => toast.error(describeError(e)),
+  })
+
+  const handleFilesChosen = (files: FileList | null) => {
+    if (!files) return
+    for (const file of Array.from(files)) {
+      uploadMutation.mutate(file)
+    }
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
   const saveMutation = useMutation({
     mutationFn: async (input: DraftInput) => {
@@ -111,10 +151,14 @@ export function PostEditor({ post }: PostEditorProps) {
     mutationFn: async (target: Post) => {
       const cleanup = await cleanupCommentsForPost({ data: { postId: target.id } })
       if (!cleanup.ok) throw new Error(cleanup.message)
+      // 删除协议的存储级联：清理文章的附件对象（Server 面 deleteFile）。
+      if (target.attachmentIds.length > 0) {
+        await deleteStorageFiles({ data: { fileIds: target.attachmentIds } })
+      }
       await deletePost(target)
     },
     onSuccess: () => {
-      toast.success('文章已删除（评论已级联清理）')
+      toast.success('文章已删除（评论与附件已级联清理）')
       void navigate({ to: '/admin', replace: true })
     },
     onError: (e: unknown) => toast.error(describeError(e)),
@@ -190,42 +234,64 @@ export function PostEditor({ post }: PostEditorProps) {
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">正文（Markdown）</CardTitle>
-            <div className="flex items-center gap-1 text-sm">
-              <Button
-                variant={state.preview ? 'ghost' : 'secondary'}
-                size="sm"
-                onClick={() => patch({ preview: false })}
-              >
-                编辑
-              </Button>
-              <Button
-                variant={state.preview ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => patch({ preview: true })}
-              >
-                预览
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {state.preview ? (
-              <div
-                className="prose prose-zinc dark:prose-invert max-w-none min-h-72"
-                dangerouslySetInnerHTML={{ __html: previewHtml }}
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-base">正文（Markdown）</CardTitle>
+              <div className="flex items-center gap-1 text-sm">
+                <Button
+                  variant={state.preview ? 'ghost' : 'secondary'}
+                  size="sm"
+                  onClick={() => patch({ preview: false })}
+                >
+                  编辑
+                </Button>
+                <Button
+                  variant={state.preview ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => patch({ preview: true })}
+                >
+                  预览
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                accept="image/png,image/jpeg,image/gif,image/webp,image/avif,application/pdf,text/plain,video/*,audio/*"
+                onChange={(e) => handleFilesChosen(e.target.files)}
               />
-            ) : (
-              <Textarea
-                className="min-h-72 font-mono text-sm"
-                value={state.content}
-                onChange={(e) => patch({ content: e.target.value })}
-                spellCheck={false}
-              />
-            )}
-          </CardContent>
-        </Card>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={uploadMutation.isPending}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {uploadMutation.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <FileUp className="size-4" />
+                )}
+                上传图片 / 附件
+              </Button>
+              {state.preview ? (
+                <div
+                  className="prose prose-zinc dark:prose-invert max-w-none min-h-72"
+                  dangerouslySetInnerHTML={{ __html: previewHtml }}
+                />
+              ) : (
+                <Textarea
+                  ref={textareaRef}
+                  className="min-h-72 font-mono text-sm"
+                  value={state.content}
+                  onChange={(e) => patch({ content: e.target.value })}
+                  spellCheck={false}
+                />
+              )}
+            </CardContent>
+          </Card>
 
         <div className="space-y-4">
           <Card>
@@ -301,6 +367,46 @@ export function PostEditor({ post }: PostEditorProps) {
                   已保存文章的标签变更走 <code className="rounded bg-muted px-1">arrayUpdates</code>（APPEND/REMOVE 原子算子）。
                 </p>
               </div>
+              <div className="space-y-2">
+                <Label>附件（Storage 公开桶）</Label>
+                {(attachments.data ?? []).length > 0 || state.attachmentIds.length > 0 ? (
+                  <ul className="space-y-1.5">
+                    {state.attachmentIds.map((id) => {
+                      const ref = (attachments.data ?? []).find((f) => f.id === id)
+                      return (
+                        <li
+                          key={id}
+                          className="flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-xs"
+                        >
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            {ref?.isImage ? (
+                              <img src={ref.previewUrl} alt="" className="h-6 w-6 rounded object-cover" />
+                            ) : (
+                              <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />
+                            )}
+                            <span className="truncate">{ref?.name ?? id}</span>
+                            {ref ? <span className="shrink-0 text-muted-foreground">{formatBytes(ref.size)}</span> : null}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label="移除附件"
+                            className="shrink-0 text-muted-foreground hover:text-destructive"
+                            onClick={() =>
+                              patch({ attachmentIds: state.attachmentIds.filter((x) => x !== id) })
+                            }
+                          >
+                            <X className="size-3.5" />
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    图片会以内联 markdown 插入正文；其他文件保存后出现在文章附件区。
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -326,6 +432,7 @@ export function PostEditor({ post }: PostEditorProps) {
       content: state.content,
       categoryId: state.categoryId,
       tagIds: state.tagIds,
+      attachmentIds: state.attachmentIds,
     })
   }
 }

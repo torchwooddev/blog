@@ -95,7 +95,7 @@ npm run test         # vitest（错误映射 / markdown 消毒 / 版本归一化
 | 集合 | 属性 | 索引 | 权限要点 |
 |---|---|---|---|
 | `categories` | `name`·`slug` (string, required) | `slug` unique | 集合级：`read:any` + `write:keys`（只有 API Key 能写） |
-| `posts` | `title`·`slug`·`content`·`category_id` (required)，`tag_ids` (string **array=true**)，`published_at` (datetime 可选) | `slug` unique；`category_id` key | **`document_security=true`**：草稿 = 空 ACE 种子（创建者私有）；发布 = 授 `read:any` + 写 `published_at`（一次原子 update） |
+| `posts` | `title`·`slug`·`content`·`category_id` (required)，`tag_ids` (string **array=true**)，`attachment_ids` (string **array=true**)，`published_at` (datetime 可选) | `slug` unique；`category_id` key | **`document_security=true`**：草稿 = 空 ACE 种子（创建者私有）；发布 = 授 `read:any` + 写 `published_at`（一次原子 update） |
 | `tags` | `name`·`slug` (required) | `slug` unique | 同 categories |
 | `comments` | `post_id`·`content` (required) | `post_id` key | `read:any` + `create:users`/`create:keys` + `delete:keys`（级联清理用） |
 
@@ -127,6 +127,15 @@ slug → id 两段式解析（无跨集合 JOIN）。
 - **引用完整性与删除协议**：
   - 删文章：Server 面先 `bulkDelete` 级联清理评论，再删文章本体（带 OCC 版本）；
   - 删分类：**计数 → 拒绝（IN_USE）→（作者迁移自己的文章）→ 带版本删除**。
+- **存储（Storage）附件**：
+  - 供给时幂等创建公开桶 `blog-media`（按名查找，不存在则 `createBucket({public:true})`）；
+  - 上传：浏览器 → 同源 `POST /api/upload`（multipart）→ 服务端先用 SDK `account.me()` 校验
+    调用者 JWT，再用 Server 面 `storage.uploadFile` 上传。不走浏览器直传，因为网关 CORS
+    按站点配置放行（开发域默认不在白名单）；同时保证"只有登录用户能借道上传"；
+  - 显示：公开桶的 view/preview/download URL 是 `bucket+fileId` 的决定性函数（匿名需
+    `?project=`），图片以内联 markdown 插入正文（`![name](viewUrl)`），其余文件在文章
+    附件区列出（含名称/大小/下载链接），已内联的图片不重复展示；
+  - `og:image` 取第一张图片附件；删文章时按删除协议级联 `deleteFile`。
 - **错误处理纪律**：域码 → 用户文案集中映射（`src/lib/errors.ts`），按 code 判别、不匹配 message 文本
   （OCC 的网关等价形态是唯一例外，已注释说明）。
 - **SEO 面**：文章页流式 SSR + OG/meta（`head()`）；`/feed.xml`（RSS 2.0）与 `/sitemap.xml`
@@ -141,7 +150,7 @@ node scripts/smoke-e2e.mjs        # 13 项断言，全绿即通过
 node scripts/smoke-provision.mjs  # 供给步骤逐项自检
 ```
 
-人工冒烟路径（与 `smoke-e2e.mjs` 的 13 步一一对应）：
+人工冒烟路径（与 `smoke-e2e.mjs` 的 17 项断言一一对应）：
 
 1. 注册两位用户 A/B（`/register`，浏览器直连 Client API）。
 2. A 在 `/admin` 新建文章保存为草稿（version=1）。
@@ -156,6 +165,10 @@ node scripts/smoke-provision.mjs  # 供给步骤逐项自检
 11. A 把自己的文章迁移到其他分类后再删 → 协议完成，分类删除。
 12. 在编辑器里给已存文章增删标签 → `arrayUpdates`（APPEND/REMOVE 原子算子，OCC 兼容）。
 13. A 删除文章 → Server 面级联清空评论 → 文章删除（OCC version）。
+14. 编辑器"上传图片/附件"→ 图片以内联 markdown 插入正文；匿名 `<img>` 加载 view URL（200 + `image/*`）。
+15. 附件引用随文章保存（`attachment_ids` 数组属性）并匿名可读。
+16. 删除文章 → 附件对象按删除协议级联 `deleteFile`（download 404）。
+17. 未登录者调 `/api/upload` → 401（代理路由先校验调用者 JWT）。
 
 ## 项目结构
 
@@ -172,10 +185,10 @@ src/
 │   ├── markdown.ts          #   remark/rehype 渲染 + rehype-sanitize 消毒
 │   └── query-options.ts     #   TanStack Query 选项（loader/useQuery 共用）
 ├── server/                  # 服务端上下文（唯一允许出现 API Key 的地方）
-│   ├── *.server.ts          #   实现（env/torchwood/provision/seed/public-data/feed/sitemap/health）
-│   ├── *.functions.ts       #   createServerFn 包装（公开读、分类管理、评论清理）
+│   ├── *.server.ts          #   实现（env/torchwood/provision/seed/public-data/storage/feed/sitemap/health）
+│   ├── *.functions.ts       #   createServerFn 包装（公开读、分类管理、评论清理、附件解析/删除）
 ├── components/              # 页面组件（post-card/post-list/comments/post-editor/category-manager）+ ui/
-└── routes/                  # 文件式路由（页面 + server routes：api/health、feed[.]xml、sitemap[.]xml）
+└── routes/                  # 文件式路由（页面 + server routes：api/health、api/upload、feed[.]xml、sitemap[.]xml）
 scripts/
 ├── check-server-only.mjs    # 秘钥边界检查（npm run check:server-only）
 ├── smoke-e2e.mjs            # 端到端冒烟（13 项）
@@ -194,3 +207,6 @@ scripts/
   `UpdateDocumentInput` 未声明）；`Document.version` 实为 int64 字符串/缺省省略（`parseVersion` 归一）。
 - Markdown 渲染用 remark/rehype + `rehype-sanitize` 白名单消毒（isomorphic-dompurify 在
   Nitro ESM 产物中因 jsdom 的 `__dirname` 不可用）。
+- **Torchwood 服务端配置要求**：`configs/config.yaml` 的 `storage.s3.bucket` 必须全小写
+  （S3 桶名规范，含大写时 `BucketExists` 返回 400，表现为健康检查 minio unavailable、上传报
+  "check bucket: 400 Bad Request"）；实时评论要求 worker 进程在运行（`task dev:worker`）。

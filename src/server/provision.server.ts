@@ -1,5 +1,5 @@
 import type { Torchwood } from '@torchwood/sdk'
-import { COLLECTION_DEFS, DATABASE_ID } from '#/lib/blog-schema'
+import { COLLECTION_DEFS, DATABASE_ID, STORAGE_BUCKET_NAME } from '#/lib/blog-schema'
 import { getServerTorchwood } from './torchwood.server'
 import { seedIfEmpty } from './seed.server'
 
@@ -14,6 +14,7 @@ import { seedIfEmpty } from './seed.server'
  */
 
 let ensurePromise: Promise<void> | null = null
+let cachedBucketId: string | null = null
 
 export function ensureBlogReady(): Promise<void> {
   if (!ensurePromise) {
@@ -23,6 +24,12 @@ export function ensureBlogReady(): Promise<void> {
     })
   }
   return ensurePromise
+}
+
+/** 附件桶 ID（服务端生成；ensureBlogReady 之后可用）。 */
+export function getBlogBucketId(): string {
+  if (!cachedBucketId) throw new Error('附件桶尚未供给')
+  return cachedBucketId
 }
 
 async function provision(): Promise<void> {
@@ -54,9 +61,29 @@ async function provision(): Promise<void> {
     await ensureAttributes(tw, def.id, def.attributes)
     await ensureIndexes(tw, def.id, def.indexes)
   }
+  await ensureStorageBucket(tw)
   if (seedEnabled()) {
     await seedIfEmpty(tw)
   }
+}
+
+/**
+ * 附件桶（公开读）：按名幂等创建——bucket id 由服务端生成，解析后缓存。
+ * 若同名桶存在但不是 public（公开桶 = 匿名 `?project=` 可读），补一次 update。
+ */
+async function ensureStorageBucket(tw: Torchwood): Promise<void> {
+  if (cachedBucketId) return
+  const buckets = await tw.server.storage.listBuckets()
+  const existing = buckets.find((b) => b.name === STORAGE_BUCKET_NAME)
+  if (existing) {
+    cachedBucketId = existing.id
+    if (existing.public !== true) {
+      await tw.server.storage.updateBucket(existing.id, { public: true })
+    }
+    return
+  }
+  const created = await tw.server.storage.createBucket({ name: STORAGE_BUCKET_NAME, public: true })
+  cachedBucketId = created.id
 }
 
 function seedEnabled(): boolean {

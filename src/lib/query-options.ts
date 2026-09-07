@@ -8,6 +8,7 @@ import {
   getPublishedPostsByCategory,
   getPublishedPostsByTag,
 } from '#/server/public-data.functions'
+import { getFiles } from '#/server/storage.functions'
 
 /**
  * TanStack Query 选项：loader 里 ensureQueryData（SSR 首屏），
@@ -54,4 +55,12 @@ export const commentsOptions = (postId: string) =>
   queryOptions({
     queryKey: ['comments', postId],
     queryFn: () => getComments({ data: { postId } }),
+  })
+
+/** 附件 ID → FileRef 解析（空数组直接返回空，不发起请求）。 */
+export const filesOptions = (fileIds: string[]) =>
+  queryOptions({
+    queryKey: ['files', [...fileIds].sort().join(',')],
+    queryFn: () => getFiles({ data: { fileIds } }),
+    enabled: fileIds.length > 0,
   })

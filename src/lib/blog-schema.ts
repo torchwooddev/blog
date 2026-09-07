@@ -9,6 +9,9 @@
  */
 export const DATABASE_ID = 'blog'
 
+/** 附件桶（公开读）。供给时按名幂等创建；桶 ID 由服务端生成，运行时解析。 */
+export const STORAGE_BUCKET_NAME = 'blog-media'
+
 export const COLLECTIONS = {
   categories: 'categories',
   posts: 'posts',
@@ -90,6 +93,9 @@ export const COLLECTION_DEFS: CollectionDef[] = [
       { key: 'category_id', type: 'string', required: true },
       { key: 'tag_ids', type: 'string', array: true },
       { key: 'published_at', type: 'datetime' },
+      // Storage 附件（图片/文件）：数组存 FileItem.id；图片内联进 markdown，
+      // 全部附件在详情页"附件区"列出并可下载。
+      { key: 'attachment_ids', type: 'string', array: true },
     ],
     indexes: [
       { id: 'by_slug', type: 'unique', attributes: ['slug'] },

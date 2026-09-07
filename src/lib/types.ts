@@ -1,4 +1,5 @@
 import type { Document } from '@torchwood/sdk'
+import { storageDownloadUrl, storagePreviewUrl, storageViewUrl } from './storage'
 
 /**
  * 领域模型：把 Document 信封（data: Record<string, unknown>）解析成强类型视图。
@@ -25,6 +26,8 @@ export interface Post {
   content: string
   categoryId: string
   tagIds: string[]
+  /** Storage 附件（FileItem.id 列表）。 */
+  attachmentIds: string[]
   /** RFC3339；null = 草稿。 */
   publishedAt: string | null
   createdAt: string
@@ -41,6 +44,18 @@ export interface Comment {
   content: string
   createdAt: string
   version: number
+}
+
+/** Storage 文件的展示视图（URL 由 bucket+fileId 决定性构造）。 */
+export interface FileRef {
+  id: string
+  name: string
+  mimeType: string
+  size: number
+  isImage: boolean
+  viewUrl: string
+  previewUrl: string
+  downloadUrl: string
 }
 
 export interface Page<T> {
@@ -90,6 +105,7 @@ export function parsePost(doc: Document): Post {
     content: str(doc, 'content'),
     categoryId: str(doc, 'category_id'),
     tagIds: strArray(doc, 'tag_ids'),
+    attachmentIds: strArray(doc, 'attachment_ids'),
     publishedAt: optStr(doc, 'published_at'),
     createdAt: doc.created_at,
     updatedAt: doc.updated_at,
@@ -105,6 +121,33 @@ export function parseComment(doc: Document): Comment {
     content: str(doc, 'content'),
     createdAt: doc.created_at,
     version: parseVersion(doc.version),
+  }
+}
+
+/** SDK FileItem 形状（size 为 int64 字符串/number 二相）。 */
+export interface RawFileItem {
+  id?: unknown
+  bucket_id?: unknown
+  name?: unknown
+  mime_type?: unknown
+  size?: unknown
+}
+
+/** FileItem → FileRef：URL 由 bucket+fileId 决定性构造（公开桶匿名可读）。 */
+export function parseFileRef(item: RawFileItem): FileRef {
+  const id = typeof item.id === 'string' ? item.id : ''
+  const bucketId = typeof item.bucket_id === 'string' ? item.bucket_id : ''
+  const mime = typeof item.mime_type === 'string' ? item.mime_type : 'application/octet-stream'
+  const sizeNum = typeof item.size === 'number' ? item.size : Number.parseInt(String(item.size ?? '0'), 10)
+  return {
+    id,
+    name: typeof item.name === 'string' ? item.name : id,
+    mimeType: mime,
+    size: Number.isFinite(sizeNum) ? sizeNum : 0,
+    isImage: mime.startsWith('image/') && mime !== 'image/svg+xml', // SVG 被网关强制附件，不内联
+    viewUrl: storageViewUrl(bucketId, id),
+    previewUrl: storagePreviewUrl(bucketId, id, 640),
+    downloadUrl: storageDownloadUrl(bucketId, id),
   }
 }
 

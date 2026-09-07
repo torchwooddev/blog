@@ -1,4 +1,4 @@
-import type { Category, Comment, Page, Post, Tag } from '#/lib/types'
+import type { Category, Comment, FileRef, Page, Post, Tag } from '#/lib/types'
 import {
   parseCategory,
   parseComment,
@@ -16,6 +16,7 @@ import {
 import { COLLECTIONS, DATABASE_ID } from '#/lib/blog-schema'
 import { getServerTorchwood } from './torchwood.server'
 import { ensureBlogReady } from './provision.server'
+import { resolveFileRefs } from './storage.server'
 
 /**
  * 公开读路径：全部走 Server 面（API Key），供 loader 做 SSR / RSS / sitemap。
@@ -54,6 +55,8 @@ export interface PostDetail {
   category: Category | null
   tags: Tag[]
   comments: Comment[]
+  /** 附件（已解析为展示视图；已删除的文件自动剔除）。 */
+  attachments: FileRef[]
 }
 
 /** slug → id 两段式解析：先按 slug 点查文章，再解析其分类与标签引用。 */
@@ -66,12 +69,13 @@ export async function fetchPostDetail(slug: string): Promise<PostDetail | null> 
   if (!doc) return null
   const post = parsePost(doc)
 
-  const [category, tags, comments] = await Promise.all([
+  const [category, tags, comments, attachments] = await Promise.all([
     fetchCategoryById(post.categoryId),
     fetchTagsByIds(post.tagIds),
     fetchComments(post.id),
+    resolveFileRefs(post.attachmentIds),
   ])
-  return { post, category, tags, comments }
+  return { post, category, tags, comments, attachments }
 }
 
 export async function fetchCategoryById(id: string): Promise<Category | null> {

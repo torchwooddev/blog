@@ -26,6 +26,7 @@ import { publicConfig } from '#/lib/config'
 import { describeError } from '#/lib/errors'
 import { formatDate } from '#/lib/format'
 import { cleanupCommentsForPost } from '#/server/admin.functions'
+import { deleteStorageFiles } from '#/server/storage.functions'
 import { useAuth } from '#/lib/torchwood-client'
 import type { Post } from '#/lib/types'
 
@@ -81,11 +82,16 @@ function AdminHome({ userId }: { userId: string }) {
   })
 
   const removeMutation = useMutation({
-    // 删除协议（1:N comments 的级联）：先让服务端清空评论，再删文档本体。
+    // 删除协议（1:N comments / Storage 附件的级联）：先让服务端清空评论与附件
+    // 对象，再删文档本体（OCC version）。
     mutationFn: async (post: Post) => {
       const cleanup = await cleanupCommentsForPost({ data: { postId: post.id } })
       if (cleanup.ok) {
         toast.info(`已级联清理 ${cleanup.affected} 条评论`)
+      }
+      if (post.attachmentIds.length > 0) {
+        const removed = await deleteStorageFiles({ data: { fileIds: post.attachmentIds } })
+        toast.info(`已级联清理 ${removed} 个附件`)
       }
       await deletePost(post)
     },
@@ -207,8 +213,9 @@ function AdminHome({ userId }: { userId: string }) {
           <DialogHeader>
             <DialogTitle>删除「{pendingDelete?.title}」？</DialogTitle>
             <DialogDescription>
-              将按删除协议执行：先由服务端级联清空该文章的评论（Server 面 + bulk
-              删除），再删除文章本体（OCC version）。此操作不可恢复。
+              将按删除协议执行：先由服务端级联清理该文章的评论（Server 面 bulk
+              删除）与附件对象（Storage deleteFile），再删除文章本体（OCC
+              version）。此操作不可恢复。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

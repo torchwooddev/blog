@@ -2,7 +2,7 @@ import type { Document, UpdateDocumentInput } from '@torchwood/sdk'
 import { COLLECTIONS, DATABASE_ID } from './blog-schema'
 import { isVersionConflict, withOccRetry } from './errors'
 import { runIdempotent } from './idempotency'
-import { parsePost, parseVersion, permissionsIncludeOwner, type Post } from './types'
+import { parsePost, parseVersion, permissionsIncludeOwner, type FileRef, type Post } from './types'
 import { ensureFreshAccessToken, tw } from './torchwood-client'
 
 /**
@@ -34,6 +34,7 @@ export interface DraftInput {
   content: string
   categoryId: string
   tagIds: string[]
+  attachmentIds: string[]
 }
 
 /** 创建草稿：不带 published_at；权限缺省 → 服务端空 ACE 种子 = 仅创建者可见。 */
@@ -49,6 +50,7 @@ export async function createDraft(input: DraftInput): Promise<Post> {
         content: input.content,
         category_id: input.categoryId,
         tag_ids: [...input.tagIds],
+        attachment_ids: [...input.attachmentIds],
       },
     }),
   )
@@ -70,6 +72,7 @@ export async function updatePostContent(
     slug: input.slug,
     content: input.content,
     category_id: input.categoryId,
+    attachment_ids: [...input.attachmentIds],
   }
   return withOccRetry(
     (version) =>
@@ -249,4 +252,29 @@ export async function fetchMyPost(postId: string): Promise<Post | null> {
   } catch {
     return null
   }
+}
+
+/**
+ * 上传附件（图片/文件）。
+ *
+ * 走同源 /api/upload 代理（Torchwood multipart 端点接受终端用户 JWT，但网关
+ * CORS 按站点配置放行、开发域默认不在白名单；代理同源免 CORS，且服务端先校验
+ * 调用者 JWT 再用 Server 面上传到 blog-media 公开桶）。
+ */
+export async function uploadAttachment(file: File): Promise<FileRef> {
+  await ensureFreshAccessToken()
+  const token = tw.getAccessToken()
+  if (!token) throw new Error('未登录：上传前请先登录。')
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${token}` },
+    body: form,
+  })
+  const payload = (await res.json()) as { ok: boolean; file?: FileRef; message?: string }
+  if (!res.ok || !payload.ok || !payload.file) {
+    throw new Error(payload.message ?? `上传失败（HTTP ${res.status}）`)
+  }
+  return payload.file
 }
