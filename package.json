@@ -13,8 +13,9 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "check:server-only": "node scripts/check-server-only.mjs",
-    "check": "npm run typecheck && npm run check:server-only",
-    "test": "vitest run"
+    "check": "npm run typecheck && npm run check:server-only && npm run check:no-any",
+    "test": "vitest run",
+    "check:no-any": "node scripts/check-no-any.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "4.3.3",
