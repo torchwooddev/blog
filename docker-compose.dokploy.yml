@@ -1,0 +1,27 @@
+# =============================================================================
+# Dokploy「Compose」类型部署用（Dokploy → Project → Compose → 指向本文件）。
+# - 镜像来自 GHCR，由 .github/workflows/release.yml 构建推送；
+# - 环境变量在 Dokploy 该服务的 Environment 面板填写（自动生成为 .env 供插值）；
+# - 域名/TLS 在 Dokploy 的 Domains 面板配 Traefik（service=blog, port=3000）。
+# =============================================================================
+services:
+  blog:
+    image: ghcr.io/torchwooddev/blog:latest
+    restart: unless-stopped
+    pull_policy: always
+    expose:
+      - '3000'
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      # --- 服务端运行时变量（BLOG_*，process.env 读取）---
+      BLOG_TORCHWOOD_ENDPOINT: ${BLOG_TORCHWOOD_ENDPOINT:-http://localhost:9080}
+      BLOG_TORCHWOOD_PROJECT_ID: ${BLOG_TORCHWOOD_PROJECT_ID:-blog}
+      BLOG_TORCHWOOD_API_KEY: ${BLOG_TORCHWOOD_API_KEY:?在 Dokploy Environment 面板设置 BLOG_TORCHWOOD_API_KEY}
+      BLOG_SEED: ${BLOG_SEED:-false}
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'

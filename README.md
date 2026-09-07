@@ -88,6 +88,54 @@ npm run test         # vitest（错误映射 / markdown 消毒 / 版本归一化
 | `VITE_TORCHWOOD_PROJECT_ID` | 公开 | 浏览器侧项目 ID |
 | `VITE_SITE_NAME` / `VITE_SITE_URL` | 公开 | 站点名 / 对外绝对地址（OG、RSS、sitemap） |
 
+## 部署（Dokploy · GitHub Actions + GHCR）
+
+链路：push `main`（或打 `v*` tag）→ Actions 质量门（`npm run check` + `test`）→ buildx 多阶段构建
+（`VITE_*` 作为 build-args 烘进客户端 bundle）→ 推镜像到 `ghcr.io/torchwooddev/blog`
+（`latest` + `sha-<hash>`，tag 发布再加 semver）→ 回调 Dokploy Deploy Webhook → Dokploy 拉新镜像重部署。
+
+涉及文件：`Dockerfile`（构建/运行两阶段，非 root，容器健康检查只判进程存活——`/api/health`
+探的是 Torchwood 上游，上游 503 不应判容器死亡）、`.dockerignore`、
+`.github/workflows/release.yml`、`docker-compose.dokploy.yml`。
+
+### 一次性配置：GitHub 仓库
+
+Settings → Secrets and variables → Actions：
+
+| 类型 | 名称 | 说明 |
+|---|---|---|
+| Variable | `VITE_TORCHWOOD_ENDPOINT` | 浏览器直连的 Client API **公网**端点（不设则烘入 localhost 兜底值） |
+| Variable | `VITE_TORCHWOOD_PROJECT_ID` | 项目 ID（默认 `blog`） |
+| Variable | `VITE_SITE_NAME` / `VITE_SITE_URL` | 站点名 / 对外绝对地址 |
+| Secret | `DOKPLOY_DEPLOY_WEBHOOK` | Dokploy 的 Deploy Webhook URL；**不设则跳过自动重部署**（镜像照常发布） |
+
+`BLOG_*` 是运行时变量，**不进** GitHub 配置——在 Dokploy 侧填。
+
+### 一次性配置：Dokploy（Compose 类型）
+
+1. Project → Create Resource → **Compose** → 选本仓库，compose 路径 `docker-compose.dokploy.yml`。
+2. 该服务的 **Environment** 面板填：
+   `BLOG_TORCHWOOD_ENDPOINT`（公网网关）、`BLOG_TORCHWOOD_PROJECT_ID`、
+   `BLOG_TORCHWOOD_API_KEY`（必需，缺了部署会直接失败）、`BLOG_SEED`（生产保持 `false`）。
+3. **Domains** 面板：service `blog`、port `3000`、绑域名（Traefik 自动 HTTPS）。
+4. **Advanced → Deploy Webhook** 复制 URL → 回填 GitHub Secret `DOKPLOY_DEPLOY_WEBHOOK`。
+
+另外确认两件 Torchwood 侧的事：Client API 网关的 CORS 白名单里加上站点域名；
+realtime 需要 worker 进程在跑。
+
+### GHCR 包可见性
+
+首次发布后 GitHub 侧生成 package `blog`，默认 **private**。二选一：
+
+- 推荐：Package → Package settings → Change visibility → **Public**（镜像里没有密钥，
+  密钥全部运行时注入），Dokploy 免凭据拉取；
+- 或保持 private，在 Dokploy 宿主机 `docker login ghcr.io`（PAT 勾 `read:packages`）。
+
+### 发布与回滚
+
+- 发布：push 到 `main` → 自动出 `latest` + `sha-xxx` 两个 tag；打 `v*` tag 额外出 semver tag。
+- 回滚：Dokploy 里把服务的 `image` tag 换成历史 `sha-xxx`（Actions 摘要里可查）后 Redeploy。
+
 ## 数据模型（`src/lib/blog-schema.ts`）
 
 数据库 `blog`，建模规约见 Torchwood `docs/developer/16-document-modeling.md`：

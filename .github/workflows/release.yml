@@ -1,0 +1,86 @@
+# =============================================================================
+# 发布流水线：质量门 → 构建镜像 → 推 GHCR →（可选）回调 Dokploy 重部署
+#
+# 前置配置（Repo → Settings）：
+#   Variables（构建期 VITE_*，烘进客户端 bundle，属公开信息）：
+#     VITE_TORCHWOOD_ENDPOINT / VITE_TORCHWOOD_PROJECT_ID
+#     VITE_SITE_NAME / VITE_SITE_URL
+#   Secrets：
+#     DOKPLOY_DEPLOY_WEBHOOK —— Dokploy 应用「Deploy Webhook」URL；
+#     不设置则跳过最后一步（镜像照常发布，Dokploy 手动 Redeploy 也可）。
+# =============================================================================
+name: release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run test
+
+  image:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 计算镜像 tag
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=sha,prefix=sha-
+
+      - name: 构建并推送
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VITE_TORCHWOOD_ENDPOINT=${{ vars.VITE_TORCHWOOD_ENDPOINT }}
+            VITE_TORCHWOOD_PROJECT_ID=${{ vars.VITE_TORCHWOOD_PROJECT_ID }}
+            VITE_SITE_NAME=${{ vars.VITE_SITE_NAME }}
+            VITE_SITE_URL=${{ vars.VITE_SITE_URL }}
+
+      - name: 回调 Dokploy 重部署
+        env:
+          WEBHOOK: ${{ secrets.DOKPLOY_DEPLOY_WEBHOOK }}
+        if: ${{ env.WEBHOOK != '' }}
+        run: curl -fsS --max-time 30 -X POST "$WEBHOOK"

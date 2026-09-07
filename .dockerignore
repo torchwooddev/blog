@@ -1,0 +1,18 @@
+# 构建上下文瘦身：产物、依赖与本地状态不进镜像构建
+node_modules
+.output
+.tanstack
+.git
+.github
+.vscode
+
+# 本地密钥与运行残留
+.env
+.env.*
+!.env.example
+prod-server.log
+ssr.html
+
+# 文档与部署编排（镜像内用不到）
+*.md
+docker-compose.dokploy.yml
