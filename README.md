@@ -84,15 +84,23 @@ npm run test         # vitest（错误映射 / markdown 消毒 / 版本归一化
 | `BLOG_TORCHWOOD_PROJECT_ID` | 服务端 | 项目 ID（`X-Torchwood-Project`） |
 | `BLOG_TORCHWOOD_API_KEY` | **仅服务端** | Server API Key；`npm run check:server-only` 强制它只出现在 `src/server/*.server.ts` |
 | `BLOG_SEED` | 服务端 | `true` 时首次供给后灌种子 |
-| `VITE_TORCHWOOD_ENDPOINT` | 公开 | 浏览器直连 Client API 的端点 |
-| `VITE_TORCHWOOD_PROJECT_ID` | 公开 | 浏览器侧项目 ID |
+| `VITE_TORCHWOOD_ENDPOINT` | 公开 | 浏览器直连 Client API 的端点；不设时回退读 `BLOG_TORCHWOOD_ENDPOINT` |
+| `VITE_TORCHWOOD_PROJECT_ID` | 公开 | 浏览器侧项目 ID；不设时回退读 `BLOG_TORCHWOOD_PROJECT_ID` |
 | `VITE_SITE_NAME` / `VITE_SITE_URL` | 公开 | 站点名 / 对外绝对地址（OG、RSS、sitemap） |
+
+`VITE_*` 是**运行时**变量：容器启动后由 `GET /config.js` 注入 `window.__APP_CONFIG__`，
+浏览器端配置随之生效——换环境/项目只需改环境变量重启，**无需重新构建镜像**。
+（`import.meta.env.VITE_*` 仅作为静态预览等场景的构建期兜底。）
 
 ## 部署（Dokploy · GitHub Actions + GHCR）
 
 链路：push `main`（或打 `v*` tag）→ Actions 质量门（`npm run check` + `test`）→ buildx 多阶段构建
-（`VITE_*` 作为 build-args 烘进客户端 bundle）→ 推镜像到 `ghcr.io/torchwooddev/blog`
-（`latest` + `sha-<hash>`，tag 发布再加 semver）→ 回调 Dokploy Deploy Webhook → Dokploy 拉新镜像重部署。
+→ 推镜像到 `ghcr.io/torchwooddev/blog`（`latest` + `sha-<hash>`，tag 发布再加 semver）
+→ 回调 Dokploy Deploy Webhook → Dokploy 拉新镜像重部署。
+
+**镜像是通用的**：所有配置运行时注入——`BLOG_*` 服务端直接读，公开配置经 `GET /config.js`
+注入 `window.__APP_CONFIG__`（`src/routes/config[.]js.ts`）。同一镜像可指向任何 Torchwood
+实例/项目，换环境只需改环境变量并重启，无需重新构建。
 
 涉及文件：`Dockerfile`（构建/运行两阶段，非 root，容器健康检查只判进程存活——`/api/health`
 探的是 Torchwood 上游，上游 503 不应判容器死亡）、`.dockerignore`、
@@ -100,23 +108,23 @@ npm run test         # vitest（错误映射 / markdown 消毒 / 版本归一化
 
 ### 一次性配置：GitHub 仓库
 
-Settings → Secrets and variables → Actions：
+仅一个可选 Secret（Settings → Secrets and variables → Actions）：
 
 | 类型 | 名称 | 说明 |
 |---|---|---|
-| Variable | `VITE_TORCHWOOD_ENDPOINT` | 浏览器直连的 Client API **公网**端点（不设则烘入 localhost 兜底值） |
-| Variable | `VITE_TORCHWOOD_PROJECT_ID` | 项目 ID（默认 `blog`） |
-| Variable | `VITE_SITE_NAME` / `VITE_SITE_URL` | 站点名 / 对外绝对地址 |
 | Secret | `DOKPLOY_DEPLOY_WEBHOOK` | Dokploy 的 Deploy Webhook URL；**不设则跳过自动重部署**（镜像照常发布） |
 
-`BLOG_*` 是运行时变量，**不进** GitHub 配置——在 Dokploy 侧填。
+无需任何 Variables——环境配置全部在 Dokploy 侧填。
 
 ### 一次性配置：Dokploy（Compose 类型）
 
 1. Project → Create Resource → **Compose** → 选本仓库，compose 路径 `docker-compose.dokploy.yml`。
 2. 该服务的 **Environment** 面板填：
    `BLOG_TORCHWOOD_ENDPOINT`（公网网关）、`BLOG_TORCHWOOD_PROJECT_ID`、
-   `BLOG_TORCHWOOD_API_KEY`（必需，缺了部署会直接失败）、`BLOG_SEED`（生产保持 `false`）。
+   `BLOG_TORCHWOOD_API_KEY`（必需，缺了部署会直接失败）、`BLOG_SEED`（生产保持 `false`）；
+   另建议设置公开配置 `VITE_SITE_NAME` / `VITE_SITE_URL`（OG/RSS/sitemap 的绝对地址）。
+   仅当网关对内与对公网地址不同时，才需要显式设置 `VITE_TORCHWOOD_ENDPOINT` /
+   `VITE_TORCHWOOD_PROJECT_ID`——不设时自动回退读 `BLOG_*` 同名值。
 3. **Domains** 面板：service `blog`、port `3000`、绑域名（Traefik 自动 HTTPS）。
 4. **Advanced → Deploy Webhook** 复制 URL → 回填 GitHub Secret `DOKPLOY_DEPLOY_WEBHOOK`。
 

@@ -1,8 +1,10 @@
 # syntax=docker/dockerfile:1
 # =============================================================================
 # Torchwood Blog — 生产镜像（Nitro node-server）
-# 构建：VITE_* 是构建期变量（import.meta.env 烘进客户端 bundle），必须以
-#       --build-arg 传入；BLOG_* 是运行时变量（process.env），部署时注入。
+# 镜像是通用的：所有配置都在运行时通过环境变量注入（无需按环境重新构建）——
+#   BLOG_*                 服务端（env.server.ts 直接读 process.env）
+#   VITE_* / BLOG_* 同名值 公开配置（GET /config.js 注入 window.__APP_CONFIG__，
+#                          endpoint/project 未设 VITE_ 时回退读 BLOG_*）
 # =============================================================================
 
 # --- 构建阶段：npm ci + vite build → .output ---
@@ -14,15 +16,6 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
-
-ARG VITE_TORCHWOOD_ENDPOINT
-ARG VITE_TORCHWOOD_PROJECT_ID=blog
-ARG VITE_SITE_NAME="Torchwood Blog"
-ARG VITE_SITE_URL
-ENV VITE_TORCHWOOD_ENDPOINT=$VITE_TORCHWOOD_ENDPOINT \
-    VITE_TORCHWOOD_PROJECT_ID=$VITE_TORCHWOOD_PROJECT_ID \
-    VITE_SITE_NAME=$VITE_SITE_NAME \
-    VITE_SITE_URL=$VITE_SITE_URL
 
 RUN npm run generate-routes && npm run build
 

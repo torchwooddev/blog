@@ -47,6 +47,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN">
       <head>
+        {/* 运行时公开配置：classic script 阻断执行，先于所有 deferred module bundle */}
+        <script src="/config.js" />
         <HeadContent />
       </head>
       <body className="antialiased">

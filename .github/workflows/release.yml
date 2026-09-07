@@ -1,11 +1,9 @@
 # =============================================================================
 # 发布流水线：质量门 → 构建镜像 → 推 GHCR →（可选）回调 Dokploy 重部署
 #
-# 前置配置（Repo → Settings）：
-#   Variables（构建期 VITE_*，烘进客户端 bundle，属公开信息）：
-#     VITE_TORCHWOOD_ENDPOINT / VITE_TORCHWOOD_PROJECT_ID
-#     VITE_SITE_NAME / VITE_SITE_URL
-#   Secrets：
+# 镜像是通用的：所有配置运行时注入（BLOG_* 服务端 + 公开配置经 /config.js），
+# 无需任何仓库 Variables / Secrets 即可构建。
+#   Secret（可选）：
 #     DOKPLOY_DEPLOY_WEBHOOK —— Dokploy 应用「Deploy Webhook」URL；
 #     不设置则跳过最后一步（镜像照常发布，Dokploy 手动 Redeploy 也可）。
 # =============================================================================
@@ -73,11 +71,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            VITE_TORCHWOOD_ENDPOINT=${{ vars.VITE_TORCHWOOD_ENDPOINT }}
-            VITE_TORCHWOOD_PROJECT_ID=${{ vars.VITE_TORCHWOOD_PROJECT_ID }}
-            VITE_SITE_NAME=${{ vars.VITE_SITE_NAME }}
-            VITE_SITE_URL=${{ vars.VITE_SITE_URL }}
 
       - name: 回调 Dokploy 重部署
         env:

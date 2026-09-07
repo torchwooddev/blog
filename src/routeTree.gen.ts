@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ConfigDotjsRouteImport } from './routes/config[.]js'
 import { Route as FeedDotxmlRouteImport } from './routes/feed[.]xml'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as RegisterRouteImport } from './routes/register'
@@ -26,6 +27,11 @@ import { Route as TagsSlugRouteImport } from './routes/tags.$slug'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfigDotjsRoute = ConfigDotjsRouteImport.update({
+  id: '/config.js',
+  path: '/config.js',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FeedDotxmlRoute = FeedDotxmlRouteImport.update({
@@ -91,6 +97,7 @@ const TagsSlugRoute = TagsSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/config.js': typeof ConfigDotjsRoute
   '/feed.xml': typeof FeedDotxmlRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
@@ -106,6 +113,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/config.js': typeof ConfigDotjsRoute
   '/feed.xml': typeof FeedDotxmlRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
@@ -122,6 +130,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/config.js': typeof ConfigDotjsRoute
   '/feed.xml': typeof FeedDotxmlRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/config.js'
     | '/feed.xml'
     | '/login'
     | '/register'
@@ -154,6 +164,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/config.js'
     | '/feed.xml'
     | '/login'
     | '/register'
@@ -169,6 +180,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/config.js'
     | '/feed.xml'
     | '/login'
     | '/register'
@@ -185,6 +197,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ConfigDotjsRoute: typeof ConfigDotjsRoute
   FeedDotxmlRoute: typeof FeedDotxmlRoute
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
@@ -206,6 +219,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/config.js': {
+      id: '/config.js'
+      path: '/config.js'
+      fullPath: '/config.js'
+      preLoaderRoute: typeof ConfigDotjsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/feed.xml': {
@@ -297,6 +317,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ConfigDotjsRoute: ConfigDotjsRoute,
   FeedDotxmlRoute: FeedDotxmlRoute,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,

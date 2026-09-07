@@ -20,6 +20,12 @@ services:
       BLOG_TORCHWOOD_PROJECT_ID: ${BLOG_TORCHWOOD_PROJECT_ID:-blog}
       BLOG_TORCHWOOD_API_KEY: ${BLOG_TORCHWOOD_API_KEY:?在 Dokploy Environment 面板设置 BLOG_TORCHWOOD_API_KEY}
       BLOG_SEED: ${BLOG_SEED:-false}
+      # --- 公开配置（浏览器经 GET /config.js 获取；缺省回退到上方同名 BLOG_* 值）---
+      # 网关对内（BLOG_*）与对公网（VITE_*）地址不同时才需要显式设置 VITE_*。
+      VITE_TORCHWOOD_ENDPOINT: ${VITE_TORCHWOOD_ENDPOINT:-}
+      VITE_TORCHWOOD_PROJECT_ID: ${VITE_TORCHWOOD_PROJECT_ID:-}
+      VITE_SITE_NAME: ${VITE_SITE_NAME:-}
+      VITE_SITE_URL: ${VITE_SITE_URL:-}
     logging:
       driver: json-file
       options:

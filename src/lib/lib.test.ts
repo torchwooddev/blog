@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, afterEach, vi } from 'vitest'
 import { describeError, isVersionConflict, withOccRetry } from './errors'
 import { excerpt, parseVersion, slugify } from './types'
 import { renderMarkdown } from './markdown'
 import { TorchwoodError } from '@torchwood/sdk'
+import type { PublicConfig } from './config'
 
 describe('errors', () => {
   it('识别 OCC 冲突的两种网关形态', () => {
@@ -62,5 +63,60 @@ describe('markdown', () => {
     const html = renderMarkdown('# 你好\n\n<script>alert(1)</script>')
     expect(html).toContain('<h1>你好</h1>')
     expect(html).not.toContain('<script>')
+  })
+})
+
+describe('publicConfig 运行时解析', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+  })
+
+  /** 用例必须封闭：.env / 外层 shell 的同名变量一律清空。 */
+  function stubEnvEmpty(): void {
+    for (const key of [
+      'VITE_TORCHWOOD_ENDPOINT',
+      'VITE_TORCHWOOD_PROJECT_ID',
+      'VITE_SITE_NAME',
+      'VITE_SITE_URL',
+      'BLOG_TORCHWOOD_ENDPOINT',
+      'BLOG_TORCHWOOD_PROJECT_ID',
+    ]) {
+      vi.stubEnv(key, '')
+    }
+  }
+
+  /** publicConfig 在模块加载时求值，每个用例重置模块后重新导入。 */
+  async function load(): Promise<PublicConfig> {
+    vi.resetModules()
+    return (await import('./config')).publicConfig
+  }
+
+  it('无任何配置时使用内置默认', async () => {
+    stubEnvEmpty()
+    const c = await load()
+    expect(c.endpoint).toBe('http://localhost:9080')
+    expect(c.projectId).toBe('blog')
+    expect(c.siteName).toBe('Torchwood Blog')
+  })
+
+  it('服务端 process.env 覆盖默认；公开值缺省时回退 BLOG_* 同名值', async () => {
+    stubEnvEmpty()
+    vi.stubEnv('BLOG_TORCHWOOD_ENDPOINT', 'http://torchwood-internal:9080')
+    vi.stubEnv('VITE_SITE_URL', 'https://blog.example.com/')
+    const c = await load()
+    expect(c.endpoint).toBe('http://torchwood-internal:9080')
+    expect(c.siteUrl).toBe('https://blog.example.com')
+  })
+
+  it('浏览器端 window.__APP_CONFIG__ 优先级最高', async () => {
+    stubEnvEmpty()
+    vi.stubGlobal('window', {
+      __APP_CONFIG__: { endpoint: 'https://api.public.example.com', siteName: '注入站' },
+    })
+    const c = await load()
+    expect(c.endpoint).toBe('https://api.public.example.com')
+    expect(c.siteName).toBe('注入站')
+    expect(c.projectId).toBe('blog')
   })
 })
