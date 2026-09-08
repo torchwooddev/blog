@@ -2,17 +2,22 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { Clock, MessageSquare, PenSquare, Search } from 'lucide-react'
 import { Button } from '#/components/ui/button'
 import { publicConfig } from '#/lib/config'
+import { settingsFromMatches } from '#/lib/site-settings'
+import { useSiteSettings } from '#/lib/site-settings-client'
 
 export const Route = createFileRoute('/about')({
-  head: () => ({
-    meta: [
-      { title: `关于 · ${publicConfig.siteName}` },
-      { name: 'description', content: `关于 ${publicConfig.siteName}：${publicConfig.siteDescription}` },
-      { property: 'og:type', content: 'website' },
-      { property: 'og:title', content: `关于 ${publicConfig.siteName}` },
-    ],
-    links: [{ rel: 'canonical', href: `${publicConfig.siteUrl}/about` }],
-  }),
+  head: ({ matches }) => {
+    const settings = settingsFromMatches(matches)
+    return {
+      meta: [
+        { title: `关于 · ${settings.siteName}` },
+        { name: 'description', content: `关于 ${settings.siteName}：${settings.siteDescription}` },
+        { property: 'og:type', content: 'website' },
+        { property: 'og:title', content: `关于 ${settings.siteName}` },
+      ],
+      links: [{ rel: 'canonical', href: `${publicConfig.siteUrl}/about` }],
+    }
+  },
   component: AboutPage,
 })
 
@@ -35,6 +40,7 @@ const FEATURES = [
 ] as const
 
 function AboutPage() {
+  const settings = useSiteSettings()
   return (
     <div className="mx-auto w-full max-w-[44rem] space-y-12">
       <header className="pb-2 pt-4 text-center">
@@ -44,8 +50,8 @@ function AboutPage() {
 
       <div className="prose prose-zinc dark:prose-invert max-w-none">
         <p>
-          你好，欢迎来到 <strong>{publicConfig.siteName}</strong>。这里是我的公开写作空间，
-          {publicConfig.siteDescription}。
+          你好，欢迎来到 <strong>{settings.siteName}</strong>。这里是我的公开写作空间，
+          {settings.siteDescription}。
         </p>
         <p>
           文章按「分类」组织、用「标签」串联；首页展示最新内容，

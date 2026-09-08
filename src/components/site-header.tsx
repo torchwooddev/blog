@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query'
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
-import { LogOut, PenSquare, Search, Users } from 'lucide-react'
+import { LogOut, PenSquare, Search, Settings, Users } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { SearchDialog } from '#/components/search-dialog'
@@ -19,7 +19,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '#/components/ui/sheet'
 import { Skeleton } from '#/components/ui/skeleton'
 import { describeError } from '#/lib/errors'
-import { publicConfig } from '#/lib/config'
+import { useSiteSettings } from '#/lib/site-settings-client'
 import { useMyGroup } from '#/lib/user-group-client'
 import { USER_GROUPS } from '#/lib/user-groups'
 import { logout, useAuth } from '#/lib/torchwood-client'
@@ -37,6 +37,7 @@ export function SiteHeader() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const [searchOpen, setSearchOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const settings = useSiteSettings()
 
   // 用户组：读者不展示写作入口；未知（加载中/查询失败）时保守展示，与既有行为一致。
   const group = useMyGroup(auth.status === 'signedIn' && auth.account ? auth.account.id : undefined)
@@ -65,9 +66,9 @@ export function SiteHeader() {
             <Link
               to="/"
               className="text-[15px] font-bold tracking-tight text-foreground transition-opacity hover:opacity-70"
-              aria-label={publicConfig.siteName}
+              aria-label={settings.siteName}
             >
-              {publicConfig.siteName}
+              {settings.siteName}
             </Link>
 
             <nav className="hidden items-center gap-5 md:flex" aria-label="主导航">
@@ -150,12 +151,20 @@ export function SiteHeader() {
                       </DropdownMenuItem>
                     ) : null}
                     {viewerIsAdmin ? (
-                      <DropdownMenuItem asChild>
-                        <Link to="/admin/users">
-                          <Users className="size-4" />
-                          用户管理
-                        </Link>
-                      </DropdownMenuItem>
+                      <>
+                        <DropdownMenuItem asChild>
+                          <Link to="/admin/settings">
+                            <Settings className="size-4" />
+                            站点设置
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link to="/admin/users">
+                            <Users className="size-4" />
+                            用户管理
+                          </Link>
+                        </DropdownMenuItem>
+                      </>
                     ) : null}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -200,7 +209,7 @@ export function SiteHeader() {
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="right" className="w-72">
           <SheetHeader>
-            <SheetTitle>{publicConfig.siteName}</SheetTitle>
+            <SheetTitle>{settings.siteName}</SheetTitle>
           </SheetHeader>
           <nav className="flex flex-col gap-1 px-4" aria-label="移动端导航">
             {NAV_LINKS.map((link) => (

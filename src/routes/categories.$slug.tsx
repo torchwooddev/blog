@@ -4,6 +4,7 @@ import { DataLoaderError, PostList } from '#/components/post-list'
 import { getCategoryBySlug } from '#/server/public-data.functions'
 import { categoriesOptions, categoryPostsOptions, tagsOptions } from '#/lib/query-options'
 import { publicConfig } from '#/lib/config'
+import { settingsFromMatches } from '#/lib/site-settings'
 
 /**
  * 分类过滤页：slug → id 两段式解析（先查分类拿 id，再按引用属性过滤），
@@ -32,13 +33,14 @@ export const Route = createFileRoute('/categories/$slug')({
     ])
     return { category }
   },
-  head: ({ loaderData }) => {
+  head: ({ matches, loaderData }) => {
     const name = loaderData ? loaderData.category.name : undefined
+    const siteName = settingsFromMatches(matches).siteName
     return {
       meta: [
-        { title: name ? `${name} 下的文章 · ${publicConfig.siteName}` : `分类 · ${publicConfig.siteName}` },
+        { title: name ? `${name} 下的文章 · ${siteName}` : `分类 · ${siteName}` },
         ...(name
-          ? [{ name: 'description', content: `${publicConfig.siteName} 中「${name}」分类下的全部文章。` }]
+          ? [{ name: 'description', content: `${siteName} 中「${name}」分类下的全部文章。` }]
           : []),
         { property: 'og:type', content: 'website' },
         ...(name ? [{ property: 'og:title', content: `${name} 下的文章` }] : []),

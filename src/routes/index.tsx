@@ -5,6 +5,8 @@ import { DataLoaderError, PostList } from '#/components/post-list'
 import { publicConfig } from '#/lib/config'
 import { toSafeJsonLd } from '#/lib/jsonld'
 import { categoriesOptions, publishedPostsOptions, tagsOptions } from '#/lib/query-options'
+import { settingsFromMatches } from '#/lib/site-settings'
+import { useSiteSettings } from '#/lib/site-settings-client'
 
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>): { cursor?: string } => ({
@@ -25,30 +27,33 @@ export const Route = createFileRoute('/')({
       context.queryClient.ensureQueryData(tagsOptions()),
     ])
   },
-  head: () => ({
-    meta: [
-      { title: publicConfig.siteName },
-      { name: 'description', content: publicConfig.siteDescription },
-      { property: 'og:type', content: 'website' },
-      { property: 'og:title', content: publicConfig.siteName },
-      { property: 'og:description', content: publicConfig.siteDescription },
-      { property: 'og:url', content: publicConfig.siteUrl },
-    ],
-    scripts: [
-      {
-        type: 'application/ld+json',
-        // 内容来自环境变量注入（非用户输入，风险低），但统一走安全序列化：
-        // 配置值里出现 "</script>" 时同样会提前闭合脚本标签。
-        children: toSafeJsonLd({
-          '@context': 'https://schema.org',
-          '@type': 'WebSite',
-          name: publicConfig.siteName,
-          description: publicConfig.siteDescription,
-          url: publicConfig.siteUrl,
-        }),
-      },
-    ],
-  }),
+  head: ({ matches }) => {
+    const settings = settingsFromMatches(matches)
+    return {
+      meta: [
+        { title: settings.siteName },
+        { name: 'description', content: settings.siteDescription },
+        { property: 'og:type', content: 'website' },
+        { property: 'og:title', content: settings.siteName },
+        { property: 'og:description', content: settings.siteDescription },
+        { property: 'og:url', content: publicConfig.siteUrl },
+      ],
+      scripts: [
+        {
+          type: 'application/ld+json',
+          // 站点名/简介是管理员配置的用户可控内容：统一走安全序列化，
+          // 值里出现 "</script>" 时同样会提前闭合脚本标签。
+          children: toSafeJsonLd({
+            '@context': 'https://schema.org',
+            '@type': 'WebSite',
+            name: settings.siteName,
+            description: settings.siteDescription,
+            url: publicConfig.siteUrl,
+          }),
+        },
+      ],
+    }
+  },
   component: HomePage,
 })
 
@@ -56,14 +61,15 @@ function HomePage() {
   const { cursor } = Route.useSearch()
   const page = useQuery({ ...publishedPostsOptions(cursor), placeholderData: keepPreviousData })
   const categories = useQuery(categoriesOptions())
+  const settings = useSiteSettings()
 
   return (
     <div className="mx-auto w-full max-w-[44rem]">
       {/* 站点开篇（Ghost 式居中开篇） */}
       <section className="pb-14 pt-6 text-center sm:pt-10">
-        <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">{publicConfig.siteName}</h1>
+        <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">{settings.siteName}</h1>
         <p className="mx-auto mt-4 max-w-md text-[17px] leading-8 text-muted-foreground">
-          {publicConfig.siteDescription}
+          {settings.siteDescription}
         </p>
         {(categories.data ?? []).length > 0 ? (
           <nav

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, Navigate, createFileRoute } from '@tanstack/react-router'
-import { Eye, EyeOff, FileEdit, FilePlus2, Inbox, Loader2, Trash2, Users } from 'lucide-react'
+import { Eye, EyeOff, FileEdit, FilePlus2, Inbox, Loader2, Settings, Trash2, Users } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { CategoryManager } from '#/components/category-manager'
@@ -24,11 +24,11 @@ import {
   publishPost,
   unpublishPost,
 } from '#/lib/admin-client'
-import { publicConfig } from '#/lib/config'
 import { describeError } from '#/lib/errors'
 import { authedHeaders } from '#/lib/authed-call'
 import { formatDate, formatRelative } from '#/lib/format'
 import { countWords, readingMinutes } from '#/lib/post-utils'
+import { settingsFromMatches } from '#/lib/site-settings'
 import { cleanupCommentsForPost } from '#/server/admin.functions'
 import { deleteStorageFiles } from '#/server/storage.functions'
 import { useAuth } from '#/lib/torchwood-client'
@@ -40,9 +40,9 @@ import type { Post } from '#/lib/types'
 type StatusFilter = 'all' | 'published' | 'draft'
 
 export const Route = createFileRoute('/admin/')({
-  head: () => ({
+  head: ({ matches }) => ({
     meta: [
-      { title: `写作台 · ${publicConfig.siteName}` },
+      { title: `写作台 · ${settingsFromMatches(matches).siteName}` },
       { name: 'robots', content: 'noindex' },
     ],
   }),
@@ -170,12 +170,20 @@ function AdminHome({ userId, viewerGroup }: { userId: string; viewerGroup: UserG
         </div>
         <div className="flex items-center gap-2">
           {viewerGroup === 'admin' ? (
-            <Button asChild size="sm" variant="outline" className="rounded-full px-4">
-              <Link to="/admin/users">
-                <Users className="size-4" />
-                用户管理
-              </Link>
-            </Button>
+            <>
+              <Button asChild size="sm" variant="outline" className="rounded-full px-4">
+                <Link to="/admin/settings">
+                  <Settings className="size-4" />
+                  站点设置
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="outline" className="rounded-full px-4">
+                <Link to="/admin/users">
+                  <Users className="size-4" />
+                  用户管理
+                </Link>
+              </Button>
+            </>
           ) : null}
           <Button asChild size="sm" className="rounded-full px-4">
             <Link to="/admin/new">

@@ -17,6 +17,7 @@ export const COLLECTIONS = {
   posts: 'posts',
   tags: 'tags',
   comments: 'comments',
+  settings: 'settings',
 } as const
 
 export type CollectionId = (typeof COLLECTIONS)[keyof typeof COLLECTIONS]
@@ -118,5 +119,23 @@ export const COLLECTION_DEFS: CollectionDef[] = [
       { key: 'author_name', type: 'string' },
     ],
     indexes: [{ id: 'by_post', type: 'key', attributes: ['post_id'] }],
+  },
+  {
+    id: COLLECTIONS.settings,
+    name: '站点配置',
+    // 单例集合（document_id = 'site'），运行时站点配置的持久层：
+    // - 不开 read:any——读取一律经白名单 server fn（输出面由代码控制，
+    //   将来加入更敏感的配置也不会被匿名直读）；Server 面凭 write:keys 读写。
+    // - 无索引：只按固定 id 点查单例。
+    permissions: [...KEY_MANAGED],
+    documentSecurity: false,
+    attributes: [
+      { key: 'site_name', type: 'string' },
+      { key: 'site_description', type: 'string' },
+      { key: 'site_footer_note', type: 'string' },
+      { key: 'posts_per_page', type: 'integer' },
+      { key: 'comments_enabled', type: 'boolean' },
+    ],
+    indexes: [],
   },
 ]

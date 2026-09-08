@@ -11,6 +11,8 @@ import { formatBytes, formatDate } from '#/lib/format'
 import { toSafeJsonLd } from '#/lib/jsonld'
 import { extractToc, readingMinutes, renderArticleHtml } from '#/lib/post-utils'
 import { excerpt } from '#/lib/types'
+import { settingsFromMatches } from '#/lib/site-settings'
+import { useSiteSettings } from '#/lib/site-settings-client'
 import { adjacentPostsOptions, commentsOptions, postDetailOptions } from '#/lib/query-options'
 
 export const Route = createFileRoute('/posts/$slug')({
@@ -20,9 +22,10 @@ export const Route = createFileRoute('/posts/$slug')({
     if (!detail) throw notFound()
     return detail
   },
-  head: ({ loaderData }) => {
+  head: ({ matches, loaderData }) => {
     const detail = loaderData
-    const title = detail ? `${detail.post.title} · ${publicConfig.siteName}` : publicConfig.siteName
+    const siteName = settingsFromMatches(matches).siteName
+    const title = detail ? `${detail.post.title} · ${siteName}` : siteName
     const description = detail ? excerpt(detail.post.content, 140) : undefined
     const url = detail ? `${publicConfig.siteUrl}/posts/${detail.post.slug}` : undefined
     const ogImage = detail?.attachments.find((f) => f.isImage)
@@ -39,8 +42,8 @@ export const Route = createFileRoute('/posts/$slug')({
           url,
           mainEntityOfPage: url,
           inLanguage: 'zh-CN',
-          author: { '@type': 'Organization', name: publicConfig.siteName },
-          publisher: { '@type': 'Organization', name: publicConfig.siteName },
+          author: { '@type': 'Organization', name: siteName },
+          publisher: { '@type': 'Organization', name: siteName },
           ...(ogImage ? { image: ogImage.viewUrl } : {}),
           ...(detail.category ? { articleSection: detail.category.name } : {}),
           ...(detail.tags.length > 0 ? { keywords: detail.tags.map((t) => t.name).join(', ') } : {}),
@@ -78,6 +81,9 @@ function PostPage() {
   const { post, category, tags, attachments } = Route.useLoaderData()
   const html = renderArticleHtml(post.content)
   const minutes = readingMinutes(post.content)
+  // 评论开关是站点级配置：关闭时评论区与计数一并隐藏（客户端开关，非安全边界）。
+  const settings = useSiteSettings()
+  const commentsOpen = settings.commentsEnabled
   // 附件区只展示"未内联进正文"的文件（内联图片已在 markdown 中显示）。
   const listed = attachments.filter((f) => !post.content.includes(f.viewUrl))
   // 评论数用实时查询（与评论区共享缓存）：新评论后头部计数联动。
@@ -113,11 +119,15 @@ function PostPage() {
               <Clock className="size-3" />
               {minutes} 分钟
             </span>
-            <span aria-hidden>·</span>
-            <span className="inline-flex items-center gap-1">
-              <MessageSquare className="size-3" />
-              {commentCount} 条评论
-            </span>
+            {commentsOpen ? (
+              <>
+                <span aria-hidden>·</span>
+                <span className="inline-flex items-center gap-1">
+                  <MessageSquare className="size-3" />
+                  {commentCount} 条评论
+                </span>
+              </>
+            ) : null}
           </div>
           {tags.length > 0 ? (
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[13px] text-muted-foreground">
@@ -167,9 +177,11 @@ function PostPage() {
           </section>
         ) : null}
 
-        <div className="mt-14">
-          <CommentsSection postId={post.id} />
-        </div>
+        {commentsOpen ? (
+          <div className="mt-14">
+            <CommentsSection postId={post.id} />
+          </div>
+        ) : null}
 
         {/* 目录挂栏：挂在居中文章列右侧的留白里，随滚动吸附（xl 起显示） */}
         <aside className="absolute bottom-0 left-full top-24 hidden w-52 xl:block 2xl:ml-2 2xl:w-56">

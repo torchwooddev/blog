@@ -6,7 +6,7 @@ import {
   type SyncGroupResult,
   type UserGroupKey,
 } from '#/lib/user-groups'
-import { getServerFnRequest, requireAuthenticatedUser } from './auth.server'
+import { getServerFnRequest, requireAdmin, requireAuthenticatedUser } from './auth.server'
 import { getUserGroups, listAcceptedMemberships } from './groups.server'
 import { getServerTorchwood } from './torchwood.server'
 
@@ -15,29 +15,14 @@ import { getServerTorchwood } from './torchwood.server'
  *
  * 鉴权（B-01 同款纪律）：server function 是可直调的 HTTP 端点，客户端调用点
  * 必须经 ensureFreshAccessToken 附带 Authorization 头；handler 入口先校验
- * 终端用户 JWT，特权动作（用户列表、调整组）再校验管理员组成员。
- *
- * 结果一律用判别联合而不是抛错："不是管理员"是正常业务分支，需要结构化
- * 返回驱动 UI（toast / 隐藏入口）。
+ * 终端用户 JWT，特权动作（用户列表、调整组、站点配置）再校验管理员组成员
+ * （requireAdmin 位于 auth.server.ts）。结果一律用判别联合而不是抛错："不是
+ * 管理员"是正常业务分支，需要结构化返回驱动 UI（toast / 隐藏入口）。
  */
 
 async function requireUserId(): Promise<{ ok: true; userId: string } | { ok: false; message: string }> {
   const auth = await requireAuthenticatedUser(getServerFnRequest())
   return auth.ok ? { ok: true, userId: auth.userId } : { ok: false, message: auth.message }
-}
-
-/** requireUserId + 管理员组成员校验（用户管理的唯一入口闸门）。 */
-async function requireAdmin(): Promise<{ ok: true; userId: string } | { ok: false; message: string }> {
-  const auth = await requireUserId()
-  if (!auth.ok) return auth
-  const tw = getServerTorchwood()
-  const groups = await getUserGroups(tw)
-  const memberships = await listAcceptedMemberships(tw, groups)
-  const mine = memberships.find((m) => m.membership.user_id === auth.userId)
-  if (!mine || mine.key !== 'admin') {
-    return { ok: false, message: '需要管理员组权限。' }
-  }
-  return auth
 }
 
 /**

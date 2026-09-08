@@ -6,7 +6,8 @@ import { ThemeProvider } from '#/components/theme-provider'
 import { SiteFooter } from '#/components/site-footer'
 import { SiteHeader } from '#/components/site-header'
 import { Button } from '#/components/ui/button'
-import { publicConfig } from '#/lib/config'
+import { SITE_SETTINGS_FALLBACK, settingsFromMatches } from '#/lib/site-settings'
+import { siteSettingsOptions } from '#/lib/site-settings-client'
 import appCss from '../styles.css?url'
 
 export interface RouterContext {
@@ -17,25 +18,35 @@ const FONT_CSS =
   'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&display=swap'
 
 export const Route = createRootRouteWithContext<RouterContext>()({
-  head: () => ({
-    meta: [
-      { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { name: 'robots', content: 'index, follow' },
-      { property: 'og:site_name', content: publicConfig.siteName },
-      { property: 'og:locale', content: 'zh_CN' },
-      { name: 'theme-color', media: '(prefers-color-scheme: light)', content: '#ffffff' },
-      { name: 'theme-color', media: '(prefers-color-scheme: dark)', content: '#17181d' },
-    ],
-    links: [
-      { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-      { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous' },
-      { rel: 'stylesheet', href: FONT_CSS },
-      { rel: 'stylesheet', href: appCss },
-      { rel: 'alternate', type: 'application/rss+xml', title: publicConfig.siteName, href: '/feed.xml' },
-      { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
-    ],
-  }),
+  // root loader：预取站点配置（settings 集合的 DB 覆盖层），SSR 首屏即生效，
+  // 并随 loaderData 注入所有子路由（各页 head() 经 settingsFromMatches 消费）。
+  // 读取失败回退 env 兜底——配置层故障不放大成整站 500。
+  loader: async ({ context }) => {
+    const settings = await context.queryClient.ensureQueryData(siteSettingsOptions()).catch(() => undefined)
+    return { settings: settings ?? SITE_SETTINGS_FALLBACK }
+  },
+  head: ({ matches }) => {
+    const settings = settingsFromMatches(matches)
+    return {
+      meta: [
+        { charSet: 'utf-8' },
+        { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+        { name: 'robots', content: 'index, follow' },
+        { property: 'og:site_name', content: settings.siteName },
+        { property: 'og:locale', content: 'zh_CN' },
+        { name: 'theme-color', media: '(prefers-color-scheme: light)', content: '#ffffff' },
+        { name: 'theme-color', media: '(prefers-color-scheme: dark)', content: '#17181d' },
+      ],
+      links: [
+        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous' },
+        { rel: 'stylesheet', href: FONT_CSS },
+        { rel: 'stylesheet', href: appCss },
+        { rel: 'alternate', type: 'application/rss+xml', title: settings.siteName, href: '/feed.xml' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+      ],
+    }
+  },
   shellComponent: RootDocument,
   component: AppShell,
   notFoundComponent: NotFound,

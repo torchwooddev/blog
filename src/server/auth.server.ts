@@ -1,6 +1,8 @@
 import { Torchwood } from '@torchwood/sdk'
 import { getStartContext } from '@tanstack/start-storage-context'
 import { serverConfig } from './env.server'
+import { getUserGroups, listAcceptedMemberships } from './groups.server'
+import { getServerTorchwood } from './torchwood.server'
 
 /**
  * Server function 的调用者鉴权（B-01 修复）。
@@ -55,4 +57,23 @@ export async function requireAuthenticatedUser(request: Request): Promise<Authen
   } catch {
     return { ok: false, message: '登录状态无效或已过期，请重新登录。' }
   }
+}
+
+/**
+ * requireUserId + 管理员组成员校验（特权管理动作的唯一入口闸门：用户管理、站点配置）。
+ * 放在 auth.server.ts（而非任何 *.functions.ts）：server functions 文件里的普通函数
+ * 会被客户端 RPC 改写保留模块依赖，把 torchwood.server 拖进客户端模块图（构建期
+ * import-protection 报错）；*.server.ts 才是 server helper 的合法居所。
+ */
+export async function requireAdmin(): Promise<{ ok: true; userId: string } | { ok: false; message: string }> {
+  const auth = await requireAuthenticatedUser(getServerFnRequest())
+  if (!auth.ok) return auth
+  const tw = getServerTorchwood()
+  const groups = await getUserGroups(tw)
+  const memberships = await listAcceptedMemberships(tw, groups)
+  const mine = memberships.find((m) => m.membership.user_id === auth.userId)
+  if (!mine || mine.key !== 'admin') {
+    return { ok: false, message: '需要管理员组权限。' }
+  }
+  return { ok: true, userId: auth.userId }
 }

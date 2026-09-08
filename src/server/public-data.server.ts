@@ -20,6 +20,7 @@ import { COLLECTIONS, DATABASE_ID } from '#/lib/blog-schema'
 import { getServerTorchwood } from './torchwood.server'
 import { ensureBlogReady } from './provision.server'
 import { resolveFileRefs } from './storage.server'
+import { fetchSiteSettings } from './site-settings.server'
 
 /**
  * 公开读路径：全部走 Server 面（API Key），供 loader 做 SSR / RSS / sitemap。
@@ -27,12 +28,16 @@ import { resolveFileRefs } from './storage.server'
  * 的文章——草稿在这里天然不可见（404 防枚举）。
  */
 
-export const PAGE_SIZE = 5
+/** 列表页每页篇数：站点配置的 posts_per_page（读取带进程缓存），未配置时用默认。 */
+async function pageSize(): Promise<number> {
+  const settings = await fetchSiteSettings()
+  return settings.postsPerPage
+}
 
 export async function fetchPublishedPosts(cursor?: string): Promise<Page<Post>> {
   await ensureBlogReady()
   const tw = getServerTorchwood()
-  const q = listPublishedPostsQuery(PAGE_SIZE, cursor)
+  const q = listPublishedPostsQuery(await pageSize(), cursor)
   const result = await tw.server.databases.listDocuments(q.databaseId, q.collectionId, q.params)
   return parsePage(result, parsePost)
 }
@@ -40,7 +45,7 @@ export async function fetchPublishedPosts(cursor?: string): Promise<Page<Post>> 
 export async function fetchPublishedPostsByCategory(categoryId: string, cursor?: string): Promise<Page<Post>> {
   await ensureBlogReady()
   const tw = getServerTorchwood()
-  const q = listPublishedPostsByCategoryQuery(categoryId, PAGE_SIZE, cursor)
+  const q = listPublishedPostsByCategoryQuery(categoryId, await pageSize(), cursor)
   const result = await tw.server.databases.listDocuments(q.databaseId, q.collectionId, q.params)
   return parsePage(result, parsePost)
 }
@@ -48,7 +53,7 @@ export async function fetchPublishedPostsByCategory(categoryId: string, cursor?:
 export async function fetchPublishedPostsByTag(tagId: string, cursor?: string): Promise<Page<Post>> {
   await ensureBlogReady()
   const tw = getServerTorchwood()
-  const q = listPublishedPostsByTagQuery(tagId, PAGE_SIZE, cursor)
+  const q = listPublishedPostsByTagQuery(tagId, await pageSize(), cursor)
   const result = await tw.server.databases.listDocuments(q.databaseId, q.collectionId, q.params)
   return parsePage(result, parsePost)
 }
@@ -59,7 +64,7 @@ export async function fetchSearchPosts(term: string, cursor?: string): Promise<P
   if (!trimmed) return { items: [], nextCursor: null }
   await ensureBlogReady()
   const tw = getServerTorchwood()
-  const q = searchPublishedPostsQuery(trimmed, PAGE_SIZE, cursor)
+  const q = searchPublishedPostsQuery(trimmed, await pageSize(), cursor)
   const result = await tw.server.databases.listDocuments(q.databaseId, q.collectionId, q.params)
   return parsePage(result, parsePost)
 }

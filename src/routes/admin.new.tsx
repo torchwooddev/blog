@@ -2,14 +2,14 @@ import { Navigate, createFileRoute } from '@tanstack/react-router'
 import { PostEditor } from '#/components/post-editor'
 import { ReaderNotice } from '#/components/reader-notice'
 import { Skeleton } from '#/components/ui/skeleton'
-import { publicConfig } from '#/lib/config'
+import { settingsFromMatches } from '#/lib/site-settings'
 import { useMyGroup } from '#/lib/user-group-client'
 import { useAuth } from '#/lib/torchwood-client'
 
 export const Route = createFileRoute('/admin/new')({
-  head: () => ({
+  head: ({ matches }) => ({
     meta: [
-      { title: `新建文章 · ${publicConfig.siteName}` },
+      { title: `新建文章 · ${settingsFromMatches(matches).siteName}` },
       { name: 'robots', content: 'noindex' },
     ],
   }),

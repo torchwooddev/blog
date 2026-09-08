@@ -4,6 +4,7 @@ import { DataLoaderError, PostList } from '#/components/post-list'
 import { getTagBySlug } from '#/server/public-data.functions'
 import { categoriesOptions, tagsOptions, tagPostsOptions } from '#/lib/query-options'
 import { publicConfig } from '#/lib/config'
+import { settingsFromMatches } from '#/lib/site-settings'
 
 /**
  * 标签过滤页：slug → id 两段式解析 + 数组成员判断（M:N 数组属性）。
@@ -31,12 +32,13 @@ export const Route = createFileRoute('/tags/$slug')({
     ])
     return { tag }
   },
-  head: ({ loaderData }) => {
+  head: ({ matches, loaderData }) => {
     const name = loaderData ? loaderData.tag.name : undefined
+    const siteName = settingsFromMatches(matches).siteName
     return {
       meta: [
-        { title: name ? `标签：${name} · ${publicConfig.siteName}` : `标签 · ${publicConfig.siteName}` },
-        ...(name ? [{ name: 'description', content: `${publicConfig.siteName} 中标记为「${name}」的全部文章。` }] : []),
+        { title: name ? `标签：${name} · ${siteName}` : `标签 · ${siteName}` },
+        ...(name ? [{ name: 'description', content: `${siteName} 中标记为「${name}」的全部文章。` }] : []),
         { property: 'og:type', content: 'website' },
         ...(name ? [{ property: 'og:title', content: `标签：${name}` }] : []),
       ],

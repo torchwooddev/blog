@@ -6,7 +6,7 @@ import { PostCard } from '#/components/post-card'
 import { EmptyState } from '#/components/empty-state'
 import { Button } from '#/components/ui/button'
 import { Skeleton } from '#/components/ui/skeleton'
-import { publicConfig } from '#/lib/config'
+import { settingsFromMatches } from '#/lib/site-settings'
 import { categoriesOptions, searchPostsOptions, tagsOptions } from '#/lib/query-options'
 
 type SearchParams = { q?: string; cursor?: string }
@@ -25,14 +25,17 @@ export const Route = createFileRoute('/search')({
       context.queryClient.ensureQueryData(tagsOptions()),
     ])
   },
-  head: () => ({
-    meta: [
-      { title: `搜索 · ${publicConfig.siteName}` },
-      { name: 'description', content: `按标题或正文搜索 ${publicConfig.siteName} 的全部已发布文章。` },
-      { property: 'og:type', content: 'website' },
-      { name: 'robots', content: 'noindex' },
-    ],
-  }),
+  head: ({ matches }) => {
+    const settings = settingsFromMatches(matches)
+    return {
+      meta: [
+        { title: `搜索 · ${settings.siteName}` },
+        { name: 'description', content: `按标题或正文搜索 ${settings.siteName} 的全部已发布文章。` },
+        { property: 'og:type', content: 'website' },
+        { name: 'robots', content: 'noindex' },
+      ],
+    }
+  },
   component: SearchPage,
 })
 

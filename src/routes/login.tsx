@@ -8,16 +8,16 @@ import { PasswordInput } from '#/components/password-input'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
-import { publicConfig } from '#/lib/config'
 import { describeError } from '#/lib/errors'
+import { settingsFromMatches } from '#/lib/site-settings'
 import { syncMyGroupKey } from '#/lib/user-group-client'
 import type { UserGroupKey } from '#/lib/user-groups'
 import { login, useAuth } from '#/lib/torchwood-client'
 
 export const Route = createFileRoute('/login')({
-  head: () => ({
+  head: ({ matches }) => ({
     meta: [
-      { title: `登录 · ${publicConfig.siteName}` },
+      { title: `登录 · ${settingsFromMatches(matches).siteName}` },
       { name: 'robots', content: 'noindex' },
     ],
   }),

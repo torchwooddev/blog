@@ -5,6 +5,7 @@ import { useMemo } from 'react'
 import { EmptyState } from '#/components/empty-state'
 import { LoadingList } from '#/components/post-list'
 import { publicConfig } from '#/lib/config'
+import { settingsFromMatches } from '#/lib/site-settings'
 import { archiveOptions, categoriesOptions } from '#/lib/query-options'
 
 export const Route = createFileRoute('/archive')({
@@ -13,14 +14,17 @@ export const Route = createFileRoute('/archive')({
       context.queryClient.ensureQueryData(archiveOptions()),
       context.queryClient.ensureQueryData(categoriesOptions()),
     ]),
-  head: () => ({
-    meta: [
-      { title: `归档 · ${publicConfig.siteName}` },
-      { name: 'description', content: `${publicConfig.siteName} 的全部文章，按年份归档。` },
-      { property: 'og:type', content: 'website' },
-    ],
-    links: [{ rel: 'canonical', href: `${publicConfig.siteUrl}/archive` }],
-  }),
+  head: ({ matches }) => {
+    const settings = settingsFromMatches(matches)
+    return {
+      meta: [
+        { title: `归档 · ${settings.siteName}` },
+        { name: 'description', content: `${settings.siteName} 的全部文章，按年份归档。` },
+        { property: 'og:type', content: 'website' },
+      ],
+      links: [{ rel: 'canonical', href: `${publicConfig.siteUrl}/archive` }],
+    }
+  },
   component: ArchivePage,
 })
 

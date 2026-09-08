@@ -14,17 +14,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '#/components/ui/select'
-import { publicConfig } from '#/lib/config'
 import { describeError } from '#/lib/errors'
 import { formatDate } from '#/lib/format'
+import { settingsFromMatches } from '#/lib/site-settings'
 import { changeUserGroup, fetchBlogUsers, useMyGroup } from '#/lib/user-group-client'
 import { USER_GROUP_ORDER, USER_GROUPS, type BlogUserView, type UserGroupKey } from '#/lib/user-groups'
 import { useAuth } from '#/lib/torchwood-client'
 
 export const Route = createFileRoute('/admin/users')({
-  head: () => ({
+  head: ({ matches }) => ({
     meta: [
-      { title: `用户管理 · ${publicConfig.siteName}` },
+      { title: `用户管理 · ${settingsFromMatches(matches).siteName}` },
       { name: 'robots', content: 'noindex' },
     ],
   }),

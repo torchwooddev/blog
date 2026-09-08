@@ -6,16 +6,16 @@ import { EmptyState } from '#/components/empty-state'
 import { ReaderNotice } from '#/components/reader-notice'
 import { Button } from '#/components/ui/button'
 import { Skeleton } from '#/components/ui/skeleton'
-import { publicConfig } from '#/lib/config'
 import { fetchMyPost } from '#/lib/admin-client'
+import { settingsFromMatches } from '#/lib/site-settings'
 import { useMyGroup } from '#/lib/user-group-client'
 import { useAuth } from '#/lib/torchwood-client'
 import type { Post } from '#/lib/types'
 
 export const Route = createFileRoute('/admin/$postId')({
-  head: () => ({
+  head: ({ matches }) => ({
     meta: [
-      { title: `编辑文章 · ${publicConfig.siteName}` },
+      { title: `编辑文章 · ${settingsFromMatches(matches).siteName}` },
       { name: 'robots', content: 'noindex' },
     ],
   }),

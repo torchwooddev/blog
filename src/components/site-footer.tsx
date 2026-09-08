@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { publicConfig } from '#/lib/config'
+import { useSiteSettings } from '#/lib/site-settings-client'
 
 const FOOTER_NAV = [
   { to: '/', label: '首页' },
@@ -11,6 +11,7 @@ const FOOTER_NAV = [
 /** 极简居中页脚：字标 + 简介 + 导航一行 + 订阅/版权。 */
 export function SiteFooter() {
   const year = new Date().getFullYear()
+  const settings = useSiteSettings()
   return (
     <footer className="border-t">
       <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-5 px-4 py-14 text-center sm:px-6">
@@ -18,9 +19,9 @@ export function SiteFooter() {
           to="/"
           className="text-[15px] font-bold tracking-tight transition-opacity hover:opacity-70"
         >
-          {publicConfig.siteName}
+          {settings.siteName}
         </Link>
-        <p className="max-w-md text-sm leading-6 text-muted-foreground">{publicConfig.siteDescription}</p>
+        <p className="max-w-md text-sm leading-6 text-muted-foreground">{settings.siteDescription}</p>
 
         <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm" aria-label="页脚导航">
           {FOOTER_NAV.map((item) => (
@@ -42,9 +43,9 @@ export function SiteFooter() {
 
         <div className="mt-2 flex flex-col items-center gap-1 text-xs text-muted-foreground">
           <p>
-            © {year} {publicConfig.siteName} · 保留所有权利
+            © {year} {settings.siteName} · 保留所有权利
           </p>
-          {publicConfig.siteFooterNote ? <p>{publicConfig.siteFooterNote}</p> : null}
+          {settings.siteFooterNote ? <p>{settings.siteFooterNote}</p> : null}
         </div>
       </div>
     </footer>
