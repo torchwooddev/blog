@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { AuthShell } from '#/components/auth-shell'
@@ -10,6 +10,8 @@ import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { publicConfig } from '#/lib/config'
 import { describeError } from '#/lib/errors'
+import { syncMyGroupKey } from '#/lib/user-group-client'
+import type { UserGroupKey } from '#/lib/user-groups'
 import { login, useAuth } from '#/lib/torchwood-client'
 
 export const Route = createFileRoute('/login')({
@@ -27,17 +29,32 @@ function LoginPage() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  // 区分"本次登录成功"与"带着已有会话误入本页"：前者由 onSuccess 按组分流，
+  // 后者直接回首页（读者组不该被送进写作台）。
+  const justLoggedIn = useRef(false)
 
   useEffect(() => {
-    if (auth.status === 'signedIn') void navigate({ to: '/admin' })
+    if (auth.status === 'signedIn' && !justLoggedIn.current) void navigate({ to: '/' })
   }, [auth.status, navigate])
 
   const mutation = useMutation({
-    // 登录/注册由浏览器直连认证服务完成（终端用户 JWT），不经过应用服务器。
-    mutationFn: () => login(email.trim(), password),
-    onSuccess: (account) => {
+    // 登录由浏览器直连认证服务完成（终端用户 JWT），不经过应用服务器。
+    // 成功后同步用户组（顺带补齐分组缺失的旧账号），按组分流落点；
+    // 同步失败不阻塞登录，落回写作台由页面守卫兜底。
+    mutationFn: async () => {
+      const account = await login(email.trim(), password)
+      justLoggedIn.current = true
+      let group: UserGroupKey | null = null
+      try {
+        group = await syncMyGroupKey()
+      } catch {
+        group = null
+      }
+      return { account, group }
+    },
+    onSuccess: ({ account, group }) => {
       toast.success(`欢迎回来，${account.name || account.email}`)
-      void navigate({ to: '/admin' })
+      void navigate({ to: group === 'reader' ? '/' : '/admin' })
     },
     onError: (e: unknown) => toast.error(describeError(e)),
   })

@@ -3,10 +3,12 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, FileX2 } from 'lucide-react'
 import { PostEditor } from '#/components/post-editor'
 import { EmptyState } from '#/components/empty-state'
+import { ReaderNotice } from '#/components/reader-notice'
 import { Button } from '#/components/ui/button'
 import { Skeleton } from '#/components/ui/skeleton'
 import { publicConfig } from '#/lib/config'
 import { fetchMyPost } from '#/lib/admin-client'
+import { useMyGroup } from '#/lib/user-group-client'
 import { useAuth } from '#/lib/torchwood-client'
 import type { Post } from '#/lib/types'
 
@@ -27,6 +29,7 @@ export const Route = createFileRoute('/admin/$postId')({
 function AdminEditPage() {
   const { postId } = Route.useParams()
   const auth = useAuth()
+  const group = useMyGroup(auth.status === 'signedIn' ? auth.account?.id : undefined)
   const [post, setPost] = useState<Post | null | 'loading'>('loading')
 
   useEffect(() => {
@@ -36,6 +39,8 @@ function AdminEditPage() {
   }, [auth.status, postId])
 
   if (auth.status === 'signedOut') return <Navigate to="/login" replace />
+  // 读者组不可编辑文章（组未知时保守放行，与写作台守卫一致）。
+  if (group.data === 'reader') return <ReaderNotice />
   if (auth.status === 'restoring' || post === 'loading') {
     return (
       <div className="mx-auto max-w-5xl space-y-6">

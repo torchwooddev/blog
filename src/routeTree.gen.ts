@@ -21,6 +21,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminPostIdRouteImport } from './routes/admin.$postId'
 import { Route as AdminNewRouteImport } from './routes/admin.new'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiUploadRouteImport } from './routes/api/upload'
 import { Route as CategoriesSlugRouteImport } from './routes/categories.$slug'
@@ -87,6 +88,11 @@ const AdminNewRoute = AdminNewRouteImport.update({
   path: '/admin/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/admin/users',
+  path: '/admin/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
@@ -125,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/$postId': typeof AdminPostIdRoute
   '/admin/new': typeof AdminNewRoute
+  '/admin/users': typeof AdminUsersRoute
   '/api/health': typeof ApiHealthRoute
   '/api/upload': typeof ApiUploadRoute
   '/categories/$slug': typeof CategoriesSlugRoute
@@ -144,6 +151,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/$postId': typeof AdminPostIdRoute
   '/admin/new': typeof AdminNewRoute
+  '/admin/users': typeof AdminUsersRoute
   '/api/health': typeof ApiHealthRoute
   '/api/upload': typeof ApiUploadRoute
   '/categories/$slug': typeof CategoriesSlugRoute
@@ -164,6 +172,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/$postId': typeof AdminPostIdRoute
   '/admin/new': typeof AdminNewRoute
+  '/admin/users': typeof AdminUsersRoute
   '/api/health': typeof ApiHealthRoute
   '/api/upload': typeof ApiUploadRoute
   '/categories/$slug': typeof CategoriesSlugRoute
@@ -185,6 +194,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/admin/$postId'
     | '/admin/new'
+    | '/admin/users'
     | '/api/health'
     | '/api/upload'
     | '/categories/$slug'
@@ -204,6 +214,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/admin/$postId'
     | '/admin/new'
+    | '/admin/users'
     | '/api/health'
     | '/api/upload'
     | '/categories/$slug'
@@ -223,6 +234,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/admin/$postId'
     | '/admin/new'
+    | '/admin/users'
     | '/api/health'
     | '/api/upload'
     | '/categories/$slug'
@@ -243,6 +255,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   AdminPostIdRoute: typeof AdminPostIdRoute
   AdminNewRoute: typeof AdminNewRoute
+  AdminUsersRoute: typeof AdminUsersRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiUploadRoute: typeof ApiUploadRoute
   CategoriesSlugRoute: typeof CategoriesSlugRoute
@@ -337,6 +350,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/health': {
       id: '/api/health'
       path: '/api/health'
@@ -387,6 +407,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   AdminPostIdRoute: AdminPostIdRoute,
   AdminNewRoute: AdminNewRoute,
+  AdminUsersRoute: AdminUsersRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiUploadRoute: ApiUploadRoute,
   CategoriesSlugRoute: CategoriesSlugRoute,

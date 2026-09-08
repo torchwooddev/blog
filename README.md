@@ -166,6 +166,12 @@ slug → id 两段式解析（无跨集合 JOIN）。
   （`src/server/provision.server.ts`，guarded singleton，"创建失败→回读验证存在"双保险）。
 - **终端用户认证**：注册/登录走 Client 面，JWT 由 SDK transport 持有；本项目补了
   localStorage 持久化 + 过期前静默 `refresh`（`src/lib/torchwood-client.ts`）。
+- **用户组（group/membership）**：管理员/作者/读者三组随启动供给按名幂等建立
+  （`src/server/groups.server.ts`）。首个注册用户自动归入管理员组，其余注册/登录
+  归入读者组（`syncMyGroup`，兼作分组缺失的自愈）；管理员在 `/admin/users` 调整
+  他人用户组（先加新组再移旧组，末位管理员保护）。组归属判定只在服务端做——
+  client 面 `groups.listGroups` 返回项目全部组、不按成员过滤，表达不了"我的组"。
+  写作台按组守卫：读者组不可进入（`src/lib/user-groups.ts` 是共享的组定义）。
 - **文档级 ACL（`documentSecurity`）**：
   - 草稿创建即私有（空 ACE 种子绑 `user:<创建者>`），SSR/API Key/其他用户一律 404（防枚举）；
   - 发布 = 一次原子 `updateDocument`（写 `published_at` + 授 `read:any`，保留属主 ACE）；撤回是反操作；

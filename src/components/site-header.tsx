@@ -1,11 +1,12 @@
 import { useMutation } from '@tanstack/react-query'
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
-import { LogOut, PenSquare, Search } from 'lucide-react'
+import { LogOut, PenSquare, Search, Users } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { SearchDialog } from '#/components/search-dialog'
 import { ThemeToggle } from '#/components/theme-toggle'
 import { Avatar, AvatarFallback } from '#/components/ui/avatar'
+import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import {
   DropdownMenu,
@@ -19,6 +20,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '#/components/ui/sh
 import { Skeleton } from '#/components/ui/skeleton'
 import { describeError } from '#/lib/errors'
 import { publicConfig } from '#/lib/config'
+import { useMyGroup } from '#/lib/user-group-client'
+import { USER_GROUPS } from '#/lib/user-groups'
 import { logout, useAuth } from '#/lib/torchwood-client'
 import { cn } from 'cn'
 
@@ -34,6 +37,11 @@ export function SiteHeader() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const [searchOpen, setSearchOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  // 用户组：读者不展示写作入口；未知（加载中/查询失败）时保守展示，与既有行为一致。
+  const group = useMyGroup(auth.status === 'signedIn' && auth.account ? auth.account.id : undefined)
+  const canWrite = group.data ? group.data !== 'reader' : true
+  const viewerIsAdmin = group.data === 'admin'
 
   const logoutMutation = useMutation({
     mutationFn: () => logout(),
@@ -96,12 +104,14 @@ export function SiteHeader() {
               <Skeleton className="h-8 w-16 rounded-full" aria-label="加载登录状态" />
             ) : auth.status === 'signedIn' && auth.account ? (
               <>
-                <Button asChild size="sm" className="ml-1 rounded-full px-4">
-                  <Link to="/admin">
-                    <PenSquare className="size-3.5" />
-                    写作
-                  </Link>
-                </Button>
+                {canWrite ? (
+                  <Button asChild size="sm" className="ml-1 rounded-full px-4">
+                    <Link to="/admin">
+                      <PenSquare className="size-3.5" />
+                      写作
+                    </Link>
+                  </Button>
+                ) : null}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -118,18 +128,35 @@ export function SiteHeader() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-52">
                     <DropdownMenuLabel className="truncate">
-                      <span className="block truncate font-medium">{auth.account.name || '作者'}</span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="truncate font-medium">{auth.account.name || '作者'}</span>
+                        {group.data ? (
+                          <Badge variant="secondary" className="shrink-0 px-1.5 text-[10px]">
+                            {USER_GROUPS[group.data].name}
+                          </Badge>
+                        ) : null}
+                      </span>
                       <span className="block truncate text-xs font-normal text-muted-foreground">
                         {auth.account.email}
                       </span>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link to="/admin">
-                        <PenSquare className="size-4" />
-                        我的文章
-                      </Link>
-                    </DropdownMenuItem>
+                    {canWrite ? (
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin">
+                          <PenSquare className="size-4" />
+                          我的文章
+                        </Link>
+                      </DropdownMenuItem>
+                    ) : null}
+                    {viewerIsAdmin ? (
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin/users">
+                          <Users className="size-4" />
+                          用户管理
+                        </Link>
+                      </DropdownMenuItem>
+                    ) : null}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       variant="destructive"
@@ -191,7 +218,7 @@ export function SiteHeader() {
                 {link.label}
               </Link>
             ))}
-            {auth.status === 'signedIn' ? (
+            {auth.status === 'signedIn' && canWrite ? (
               <Link
                 to="/admin"
                 onClick={() => setMobileOpen(false)}

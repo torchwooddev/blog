@@ -1,6 +1,7 @@
 import type { Torchwood } from '@torchwood/sdk'
 import { COLLECTION_DEFS, DATABASE_ID, STORAGE_BUCKET_NAME } from '#/lib/blog-schema'
 import { getServerTorchwood } from './torchwood.server'
+import { getUserGroups } from './groups.server'
 import { seedIfEmpty } from './seed.server'
 
 /**
@@ -62,6 +63,9 @@ async function provision(): Promise<void> {
     await ensureIndexes(tw, def.id, def.indexes)
   }
   await ensureStorageBucket(tw)
+  // 用户组（管理员/作者/读者）：项目级资源、与库无关，但随启动供给一并幂等建立，
+  // 保证首次部署后第一个注册用户就能被归入管理员组。
+  await getUserGroups(tw)
   if (seedEnabled()) {
     await seedIfEmpty(tw)
   }
