@@ -26,11 +26,13 @@ import { Label } from '#/components/ui/label'
 import { categoriesOptions } from '#/lib/query-options'
 import { slugify } from '#/lib/types'
 import { createCategory, deleteCategory, renameCategory } from '#/server/admin.functions'
+import { authedHeaders } from '#/lib/authed-call'
 import type { Category } from '#/lib/types'
 
 /**
  * 分类管理：读走公开读路径，写经服务端动作（分类只允许服务端写入）。
  * 删除执行引用完整性协议：仍被已发布文章引用时拒绝删除。
+ * 写动作的服务端 handler 校验终端用户 JWT（B-01），故调用时附带 Authorization 头。
  */
 export function CategoryManager({ onChange }: { onChange: () => void }) {
   const queryClient = useQueryClient()
@@ -48,7 +50,8 @@ export function CategoryManager({ onChange }: { onChange: () => void }) {
   }
 
   const createMutation = useMutation({
-    mutationFn: () => createCategory({ data: { name: name.trim(), slug: slug.trim() } }),
+    mutationFn: async () =>
+      createCategory({ data: { name: name.trim(), slug: slug.trim() }, headers: await authedHeaders() }),
     onSuccess: (result) => {
       if (result.ok) {
         toast.success('分类已创建')
@@ -63,7 +66,8 @@ export function CategoryManager({ onChange }: { onChange: () => void }) {
   })
 
   const renameMutation = useMutation({
-    mutationFn: () => renameCategory({ data: { categoryId: renaming?.id ?? '', name: renameValue.trim() } }),
+    mutationFn: async () =>
+      renameCategory({ data: { categoryId: renaming?.id ?? '', name: renameValue.trim() }, headers: await authedHeaders() }),
     onSuccess: (result) => {
       if (result.ok) {
         toast.success('分类已重命名')
@@ -77,7 +81,8 @@ export function CategoryManager({ onChange }: { onChange: () => void }) {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (categoryId: string) => deleteCategory({ data: { categoryId } }),
+    mutationFn: async (categoryId: string) =>
+      deleteCategory({ data: { categoryId }, headers: await authedHeaders() }),
     onSuccess: (result) => {
       if (result.ok) {
         toast.success('分类已删除')

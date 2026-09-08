@@ -3,6 +3,7 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { Rss } from 'lucide-react'
 import { DataLoaderError, PostList } from '#/components/post-list'
 import { publicConfig } from '#/lib/config'
+import { toSafeJsonLd } from '#/lib/jsonld'
 import { categoriesOptions, publishedPostsOptions, tagsOptions } from '#/lib/query-options'
 
 export const Route = createFileRoute('/')({
@@ -36,7 +37,9 @@ export const Route = createFileRoute('/')({
     scripts: [
       {
         type: 'application/ld+json',
-        children: JSON.stringify({
+        // 内容来自环境变量注入（非用户输入，风险低），但统一走安全序列化：
+        // 配置值里出现 "</script>" 时同样会提前闭合脚本标签。
+        children: toSafeJsonLd({
           '@context': 'https://schema.org',
           '@type': 'WebSite',
           name: publicConfig.siteName,

@@ -3,6 +3,7 @@ import { COLLECTIONS, DATABASE_ID } from '#/lib/blog-schema'
 import { parseVersion } from '#/lib/types'
 import { getServerTorchwood } from './torchwood.server'
 import { ensureBlogReady } from './provision.server'
+import { getServerFnRequest, requireAuthenticatedUser } from './auth.server'
 
 /**
  * 管理面的 Server 面动作（作者台通过 server function 调用）：
@@ -12,7 +13,18 @@ import { ensureBlogReady } from './provision.server'
  *
  * 返回判别联合而不是抛错：错误语义（如"分类仍被引用"）是正常业务分支，
  * 需要结构化数据（count）驱动 UI。
+ *
+ * 鉴权（B-01）：server function 是可直调的 HTTP 端点，admin 页面的客户端守卫
+ * 不保护它。以下全部为特权动作，handler 入口先校验终端用户 JWT（客户端调用点
+ * 需经 ensureFreshAccessToken 附带 Authorization 头），失败复用既有 {ok:false}
+ * 错误形态返回，不触碰数据库。
  */
+
+/** handler 入口的调用者校验：失败时返回既有的 {ok:false;message} 形态。 */
+async function requireUserMessage(): Promise<{ ok: true } | { ok: false; message: string }> {
+  const auth = await requireAuthenticatedUser(getServerFnRequest())
+  return auth.ok ? { ok: true } : { ok: false, message: auth.message }
+}
 
 export interface CategoryInUse {
   ok: false
@@ -37,6 +49,8 @@ export const createCategory = createServerFn({ method: 'POST' })
     }
   })
   .handler(async ({ data }): Promise<{ ok: true; id: string } | { ok: false; message: string }> => {
+    const auth = await requireUserMessage()
+    if (!auth.ok) return auth
     if (!data.name || !data.slug) return { ok: false, message: '分类名和 slug 都不能为空。' }
     await ensureBlogReady()
     const tw = getServerTorchwood()
@@ -54,6 +68,8 @@ export const deleteCategory = createServerFn({ method: 'POST' })
     return { categoryId: typeof raw.categoryId === 'string' ? raw.categoryId : '' }
   })
   .handler(async ({ data }): Promise<DeleteCategoryResult> => {
+    const auth = await requireUserMessage()
+    if (!auth.ok) return { ok: false, reason: 'ERROR', message: auth.message }
     if (!data.categoryId) return { ok: false, reason: 'NOT_FOUND' }
     await ensureBlogReady()
     const tw = getServerTorchwood()
@@ -89,6 +105,8 @@ export const renameCategory = createServerFn({ method: 'POST' })
     }
   })
   .handler(async ({ data }): Promise<{ ok: true } | { ok: false; message: string }> => {
+    const auth = await requireUserMessage()
+    if (!auth.ok) return auth
     if (!data.categoryId) return { ok: false, message: 'categoryId 不能为空。' }
     if (!data.name) return { ok: false, message: '分类名不能为空。' }
     await ensureBlogReady()
@@ -111,6 +129,8 @@ export const cleanupCommentsForPost = createServerFn({ method: 'POST' })
     return { postId: typeof raw.postId === 'string' ? raw.postId : '' }
   })
   .handler(async ({ data }): Promise<{ ok: true; affected: number } | { ok: false; message: string }> => {
+    const auth = await requireUserMessage()
+    if (!auth.ok) return auth
     if (!data.postId) return { ok: false, message: 'postId 不能为空。' }
     await ensureBlogReady()
     const tw = getServerTorchwood()

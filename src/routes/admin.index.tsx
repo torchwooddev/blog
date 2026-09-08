@@ -25,6 +25,7 @@ import {
 } from '#/lib/admin-client'
 import { publicConfig } from '#/lib/config'
 import { describeError } from '#/lib/errors'
+import { authedHeaders } from '#/lib/authed-call'
 import { formatDate, formatRelative } from '#/lib/format'
 import { countWords, readingMinutes } from '#/lib/post-utils'
 import { cleanupCommentsForPost } from '#/server/admin.functions'
@@ -111,13 +112,15 @@ function AdminHome({ userId }: { userId: string }) {
 
   const removeMutation = useMutation({
     // 删除协议：先级联清理评论与附件对象，再删除文档本体（带乐观锁版本）。
+    // 级联 server function 的 handler 校验终端用户 JWT（B-01），需附带 Authorization 头。
     mutationFn: async (post: Post) => {
-      const cleanup = await cleanupCommentsForPost({ data: { postId: post.id } })
+      const headers = await authedHeaders()
+      const cleanup = await cleanupCommentsForPost({ data: { postId: post.id }, headers })
       if (cleanup.ok && cleanup.affected > 0) {
         toast.info(`已同时删除 ${cleanup.affected} 条评论`)
       }
       if (post.attachmentIds.length > 0) {
-        await deleteStorageFiles({ data: { fileIds: post.attachmentIds } })
+        await deleteStorageFiles({ data: { fileIds: post.attachmentIds }, headers })
       }
       await deletePost(post)
     },

@@ -46,6 +46,7 @@ import {
   type DraftInput,
 } from '#/lib/admin-client'
 import { describeError } from '#/lib/errors'
+import { authedHeaders } from '#/lib/authed-call'
 import { formatBytes, formatDate } from '#/lib/format'
 import { renderArticleHtml, countWords, readingMinutes } from '#/lib/post-utils'
 import { categoriesOptions, filesOptions, tagsOptions } from '#/lib/query-options'
@@ -207,11 +208,13 @@ export function PostEditor({ post }: PostEditorProps) {
 
   const deleteMutation = useMutation({
     mutationFn: async (target: Post) => {
-      const cleanup = await cleanupCommentsForPost({ data: { postId: target.id } })
+      // 级联 server function 的 handler 校验终端用户 JWT（B-01），需附带 Authorization 头。
+      const headers = await authedHeaders()
+      const cleanup = await cleanupCommentsForPost({ data: { postId: target.id }, headers })
       if (!cleanup.ok) throw new Error(cleanup.message)
       // 删除协议的存储级联：清理文章的附件对象。
       if (target.attachmentIds.length > 0) {
-        await deleteStorageFiles({ data: { fileIds: target.attachmentIds } })
+        await deleteStorageFiles({ data: { fileIds: target.attachmentIds }, headers })
       }
       await deletePost(target)
     },

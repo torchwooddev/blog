@@ -1,4 +1,5 @@
 import { publicConfig } from '#/lib/config'
+import { xmlEscape } from '#/lib/xml'
 import { excerpt } from '#/lib/types'
 import { fetchAllCategories, fetchPublishedPosts } from './public-data.server'
 
@@ -8,21 +9,20 @@ export async function renderFeedXml(): Promise<string> {
   const categories = await fetchAllCategories()
   const categoryById = new Map(categories.map((c) => [c.id, c]))
 
-  const escaped = (s: string) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-
   const items = page.items
     .map((post) => {
       const category = categoryById.get(post.categoryId)
-      const url = `${publicConfig.siteUrl}/posts/${post.slug}`
+      // slug 由作者端写入（用户可控），拼进 <link>/<guid> 前必须转义：
+      // 字面 "<" 可注入标签，裸 "&" 会破坏 XML 合法性。
+      const url = xmlEscape(`${publicConfig.siteUrl}/posts/${post.slug}`)
       return [
         '    <item>',
-        `      <title>${escaped(post.title)}</title>`,
+        `      <title>${xmlEscape(post.title)}</title>`,
         `      <link>${url}</link>`,
         `      <guid isPermaLink="true">${url}</guid>`,
         `      <pubDate>${new Date(post.publishedAt ?? post.createdAt).toUTCString()}</pubDate>`,
-        ...(category ? [`      <category>${escaped(category.name)}</category>`] : []),
-        `      <description>${escaped(excerpt(post.content, 300))}</description>`,
+        ...(category ? [`      <category>${xmlEscape(category.name)}</category>`] : []),
+        `      <description>${xmlEscape(excerpt(post.content, 300))}</description>`,
         '    </item>',
       ].join('\n')
     })
@@ -31,11 +31,11 @@ export async function renderFeedXml(): Promise<string> {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>${escaped(publicConfig.siteName)}</title>
-    <link>${publicConfig.siteUrl}</link>
+    <title>${xmlEscape(publicConfig.siteName)}</title>
+    <link>${xmlEscape(publicConfig.siteUrl)}</link>
     <description>TanStack Start + Torchwood BaaS 的参考实现</description>
     <language>zh-CN</language>
-    <atom:link href="${publicConfig.siteUrl}/feed.xml" rel="self" type="application/rss+xml"/>
+    <atom:link href="${xmlEscape(`${publicConfig.siteUrl}/feed.xml`)}" rel="self" type="application/rss+xml"/>
 ${items}
   </channel>
 </rss>

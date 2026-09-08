@@ -11,10 +11,31 @@ import { getServerTorchwood } from './torchwood.server'
  * 直传 Torchwood multipart 端点：网关 CORS 是站点配置驱动的（默认白名单不含
  * 开发域），代理同源免 CORS，并让"调用者必须是已登录终端用户"的校验用 SDK 完成。
  * 上传本身用 Server 面 SDK `uploadFile`（multipart，等价文档 §5.2 直传端点）。
+ *
+ * B-07（docs/security-audit-2026-09-08.md）：上传按 MIME + 扩展名双确认的白名单收敛，
+ * 不一致即拒。决策：svg（image/svg+xml）允许——存储层对响应强制 attachment + nosniff
+ * + CSP sandbox，其活跃内容风险已被沙箱化（且博客需要图标类素材）；html/htm/xhtml/swf
+ * 等可直接执行的活跃类型一律拒绝，不设例外。白名单见 ALLOWED_UPLOAD_TYPES。
  */
 
 /** 上传大小上限（demo）：10 MiB。 */
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
+/** 允许上传的 MIME → 扩展名白名单（双确认：MIME 命中且扩展名一致才放行）。 */
+const ALLOWED_UPLOAD_TYPES: ReadonlyMap<string, readonly string[]> = new Map([
+  ['image/jpeg', ['.jpeg', '.jpg']],
+  ['image/png', ['.png']],
+  ['image/gif', ['.gif']],
+  ['image/webp', ['.webp']],
+  ['image/avif', ['.avif']],
+  ['image/svg+xml', ['.svg']],
+  ['application/pdf', ['.pdf']],
+  ['text/plain', ['.txt']],
+  ['text/markdown', ['.md', '.markdown']],
+])
+
+const UPLOAD_TYPE_MESSAGE =
+  '不支持的文件类型：仅允许 JPEG/PNG/GIF/WebP/AVIF/SVG 图片、PDF、TXT 与 Markdown（MIME 与扩展名须一致）。'
 
 export interface UploadCheck {
   ok: true
@@ -48,7 +69,20 @@ export async function verifyUploader(request: Request): Promise<UploadCheck | Up
   }
 }
 
-/** 解析 multipart 里的单个文件字段。 */
+/** 规范化 MIME：部分客户端把 JPEG 发成 image/jpg，统一映射到 image/jpeg。 */
+function normalizeMime(mime: string): string {
+  const lower = mime.trim().toLowerCase()
+  return lower === 'image/jpg' ? 'image/jpeg' : lower
+}
+
+/** 取小写扩展名（含点）；无基名（".png"）或无扩展名时返回 null。 */
+function fileExtension(name: string): string | null {
+  const dot = name.lastIndexOf('.')
+  if (dot <= 0 || dot === name.length - 1) return null
+  return name.slice(dot).toLowerCase()
+}
+
+/** 解析 multipart 里的单个文件字段（大小 ≤10MiB + 类型白名单双确认）。 */
 export function extractUploadFile(form: FormData): File | UploadProblem {
   const value = form.get('file')
   if (!(value instanceof File) || value.size === 0) {
@@ -56,6 +90,11 @@ export function extractUploadFile(form: FormData): File | UploadProblem {
   }
   if (value.size > MAX_UPLOAD_BYTES) {
     return { ok: false, status: 413, message: '文件超过 10 MiB 上限（demo 限制）。' }
+  }
+  const allowedExtensions = ALLOWED_UPLOAD_TYPES.get(normalizeMime(value.type))
+  const extension = fileExtension(value.name)
+  if (!allowedExtensions || !extension || !allowedExtensions.includes(extension)) {
+    return { ok: false, status: 415, message: UPLOAD_TYPE_MESSAGE }
   }
   return value
 }

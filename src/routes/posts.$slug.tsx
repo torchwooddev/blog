@@ -8,6 +8,7 @@ import { ReadingProgress } from '#/components/reading-progress'
 import { Skeleton } from '#/components/ui/skeleton'
 import { publicConfig } from '#/lib/config'
 import { formatBytes, formatDate } from '#/lib/format'
+import { toSafeJsonLd } from '#/lib/jsonld'
 import { extractToc, readingMinutes, renderArticleHtml } from '#/lib/post-utils'
 import { excerpt } from '#/lib/types'
 import { adjacentPostsOptions, commentsOptions, postDetailOptions } from '#/lib/query-options'
@@ -25,8 +26,10 @@ export const Route = createFileRoute('/posts/$slug')({
     const description = detail ? excerpt(detail.post.content, 140) : undefined
     const url = detail ? `${publicConfig.siteUrl}/posts/${detail.post.slug}` : undefined
     const ogImage = detail?.attachments.find((f) => f.isImage)
+    // 标题等字段是用户可控内容：必须走安全序列化，
+    // 否则字面 "</script>" 会提前闭合 ld+json 标签（存储型 XSS，见 B-02）。
     const jsonLd = detail
-      ? JSON.stringify({
+      ? toSafeJsonLd({
           '@context': 'https://schema.org',
           '@type': 'BlogPosting',
           headline: detail.post.title,
