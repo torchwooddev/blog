@@ -1,8 +1,9 @@
 import { useMutation } from '@tanstack/react-query'
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
-import { LogOut, PenSquare, Search, Settings, Users } from 'lucide-react'
+import { KeyRound, LogOut, PenSquare, Search, Settings, Users } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { ChangePasswordDialog } from '#/components/change-password-dialog'
 import { SearchDialog } from '#/components/search-dialog'
 import { ThemeToggle } from '#/components/theme-toggle'
 import { Avatar, AvatarFallback } from '#/components/ui/avatar'
@@ -37,6 +38,7 @@ export function SiteHeader() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const [searchOpen, setSearchOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [pwDialogOpen, setPwDialogOpen] = useState(false)
   const settings = useSiteSettings()
 
   // 用户组：读者不展示写作入口；未知（加载中/查询失败）时保守展示，与既有行为一致。
@@ -166,6 +168,10 @@ export function SiteHeader() {
                         </DropdownMenuItem>
                       </>
                     ) : null}
+                    <DropdownMenuItem onSelect={() => setPwDialogOpen(true)}>
+                      <KeyRound className="size-4" />
+                      修改密码
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       variant="destructive"
@@ -255,6 +261,10 @@ export function SiteHeader() {
       </Sheet>
 
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
+      <ChangePasswordDialog
+        open={pwDialogOpen}
+        onOpenChange={setPwDialogOpen}
+      />
     </>
   )
 }

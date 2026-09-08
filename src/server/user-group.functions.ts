@@ -1,8 +1,12 @@
 import { createServerFn } from '@tanstack/react-start'
 import {
+  isDeletedUserRow,
   isUserGroupKey,
+  isUserStatus,
   type ListBlogUsersResult,
   type SetUserGroupResult,
+  type SetUserStatusResult,
+  type SettableUserStatus,
   type SyncGroupResult,
   type UserGroupKey,
 } from '#/lib/user-groups'
@@ -59,7 +63,8 @@ export const syncMyGroup = createServerFn({ method: 'POST' })
     return { ok: true, group: target }
   })
 
-/** 用户管理列表：users.list 与三组成员表合并（Server 面才能列举用户）。 */
+/** 用户管理列表：users.list 与三组成员表合并（Server 面才能列举用户）。
+ * 排除已删除账号的匿名化残留（deleted-*@deleted.invalid——不可操作，展示无意义）。 */
 export const listBlogUsers = createServerFn({ method: 'POST' })
   .validator((input: unknown) => (input ?? {}) as Record<string, never>)
   .handler(async (): Promise<ListBlogUsersResult> => {
@@ -73,14 +78,59 @@ export const listBlogUsers = createServerFn({ method: 'POST' })
     return {
       ok: true,
       users: users
+        .filter((u) => !isDeletedUserRow(u.email))
         .map((u) => ({
           id: u.id,
           email: u.email,
           name: u.name,
           group: groupByUser.get(u.id) ?? null,
+          status: isUserStatus(u.status) ? u.status : 'inactive',
           createdAt: u.created_at,
         }))
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    }
+  })
+
+/**
+ * 封禁/解封用户（管理员专用）：blocked 后该账号的登录与既有会话立即失效
+ * （后端对非 active 用户一律 401，探针确认）。保护规则：
+ * - 不能封禁自己（否则操作者立即掉线，解封无人能做）；
+ * - 不能封禁最后一个管理员（与"移出最后一个管理员"同一失败模式）。
+ */
+export const setUserStatus = createServerFn({ method: 'POST' })
+  .validator((input: unknown) => {
+    const raw = (input ?? {}) as { userId?: unknown; status?: unknown }
+    return {
+      userId: typeof raw.userId === 'string' ? raw.userId.trim() : '',
+      status: raw.status,
+    }
+  })
+  .handler(async ({ data }): Promise<SetUserStatusResult> => {
+    const auth = await requireAdmin()
+    if (!auth.ok) return auth
+    if (!data.userId) return { ok: false, message: 'userId 不能为空。' }
+    if (!isUserStatus(data.status) || (data.status !== 'active' && data.status !== 'blocked')) {
+      return { ok: false, message: '目标状态不合法（仅支持封禁/解封）。' }
+    }
+    const target: SettableUserStatus = data.status
+
+    const tw = getServerTorchwood()
+    if (data.userId === auth.userId && target === 'blocked') {
+      return { ok: false, message: '不能封禁自己的账号。' }
+    }
+    const memberships = await listAcceptedMemberships(tw, await getUserGroups(tw))
+    const targetIsAdmin = memberships.some((m) => m.key === 'admin' && m.membership.user_id === data.userId)
+    const adminCount = memberships.filter((m) => m.key === 'admin').length
+    if (target === 'blocked' && targetIsAdmin && adminCount <= 1) {
+      return { ok: false, message: '至少需要保留一名可用管理员，无法封禁最后一个管理员。' }
+    }
+    try {
+      const updated = await tw.server.users.update(data.userId, { status: target })
+      return isUserStatus(updated.status) && updated.status === target
+        ? { ok: true }
+        : { ok: false, message: '状态更新未生效，请重试。' }
+    } catch (e) {
+      return { ok: false, message: e instanceof Error ? e.message : String(e) }
     }
   })
 

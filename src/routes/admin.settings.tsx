@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Link, Navigate, createFileRoute } from '@tanstack/react-router'
-import { ArrowLeft, Loader2, Save, ShieldAlert } from 'lucide-react'
+import { createFileRoute } from '@tanstack/react-router'
+import { Loader2, Save, ShieldAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { EmptyState } from '#/components/empty-state'
@@ -40,9 +40,8 @@ export const Route = createFileRoute('/admin/settings')({
 
 function AdminSettingsPage() {
   const auth = useAuth()
-  if (auth.status === 'restoring') return <SettingsSkeleton />
-  if (auth.status === 'signedOut' || !auth.account) return <Navigate to="/login" replace />
-  return <AdminSettingsHome viewerId={auth.account.id} />
+  // 布局路由 /admin 已保证登录且可进工作台；这里只取当前用户 id。
+  return <AdminSettingsHome viewerId={auth.account?.id ?? ''} />
 }
 
 function SettingsSkeleton() {
@@ -68,30 +67,20 @@ function AdminSettingsHome({ viewerId }: { viewerId: string }) {
   })
 
   if (group.isPending) return <SettingsSkeleton />
-  // 仅管理员可进；读者/作者回写作台。
+  // 仅管理员可进；读者/作者回工作台。
   if (group.data !== 'admin') {
     return (
-      <div className="mx-auto max-w-2xl">
-        <EmptyState
-          icon={ShieldAlert}
-          title="需要管理员组权限"
-          description="站点设置只对管理员组开放。"
-          action={
-            <Button asChild size="sm" variant="outline">
-              <Link to="/admin">
-                <ArrowLeft className="size-4" />
-                返回写作台
-              </Link>
-            </Button>
-          }
-        />
-      </div>
+      <EmptyState
+        icon={ShieldAlert}
+        title="需要管理员组权限"
+        description="站点设置只对管理员组开放。"
+      />
     )
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
-      <header className="flex flex-wrap items-center justify-between gap-4 pt-4">
+    <div className="space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">站点设置</h1>
           <p className="mt-1 text-[13px] text-muted-foreground">
@@ -102,12 +91,6 @@ function AdminSettingsHome({ viewerId }: { viewerId: string }) {
                 : '尚未自定义过配置，以下为环境变量/内置默认值，保存后持久化到数据库。'}
           </p>
         </div>
-        <Button asChild size="sm" variant="outline" className="rounded-full px-4">
-          <Link to="/admin">
-            <ArrowLeft className="size-4" />
-            返回写作台
-          </Link>
-        </Button>
       </header>
 
       {settingsQuery.isLoading ? (

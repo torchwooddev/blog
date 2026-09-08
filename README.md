@@ -170,9 +170,14 @@ slug → id 两段式解析（无跨集合 JOIN）。
 - **用户组（group/membership）**：管理员/作者/读者三组随启动供给按名幂等建立
   （`src/server/groups.server.ts`）。首个注册用户自动归入管理员组，其余注册/登录
   归入读者组（`syncMyGroup`，兼作分组缺失的自愈）；管理员在 `/admin/users` 调整
-  他人用户组（先加新组再移旧组，末位管理员保护）。组归属判定只在服务端做——
-  client 面 `groups.listGroups` 返回项目全部组、不按成员过滤，表达不了"我的组"。
-  写作台按组守卫：读者组不可进入（`src/lib/user-groups.ts` 是共享的组定义）。
+  他人用户组（先加新组再移旧组，末位管理员保护）、封禁/解封（blocked 后登录与
+  既有会话立即失效，服务端拒自封与封末位管理员）、按昵称/邮箱搜索。列表排除
+  已删除账号的匿名化残留（`deleted-*@deleted.invalid`）。组归属判定只在服务端做
+  ——client 面 `groups.listGroups` 返回项目全部组、不按成员过滤，表达不了"我的组"。
+  工作台按组守卫：读者组不可进入（`src/lib/user-groups.ts` 是共享的组定义）。
+- **工作台（/admin/\*）**：独立控制台外壳——左侧菜单 + 右侧工作区（`admin.tsx`
+  布局路由统一做会话/分组守卫，`admin-shell.tsx` 是外壳），公开博客页保持原
+  页头/页脚不受影响。支持自助修改密码（Client 账号 API，服务端校验旧密码）。
 - **文档级 ACL（`documentSecurity`）**：
   - 草稿创建即私有（空 ACE 种子绑 `user:<创建者>`），SSR/API Key/其他用户一律 404（防枚举）；
   - 发布 = 一次原子 `updateDocument`（写 `published_at` + 授 `read:any`，保留属主 ACE）；撤回是反操作；

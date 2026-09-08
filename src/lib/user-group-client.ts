@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import type { BlogUserView, UserGroupKey } from './user-groups'
+import type { BlogUserView, SettableUserStatus, UserGroupKey } from './user-groups'
+import { errorStatus } from './errors'
 import { authedHeaders } from './authed-call'
-import { listBlogUsers, setUserGroup, syncMyGroup } from '#/server/user-group.functions'
+import { listBlogUsers, setUserGroup, setUserStatus, syncMyGroup } from '#/server/user-group.functions'
+import { clearSession } from './torchwood-client'
 
 /**
  * 用户组的客户端封装。
@@ -12,12 +14,18 @@ import { listBlogUsers, setUserGroup, syncMyGroup } from '#/server/user-group.fu
  * - 管理台各页用 useMyGroup 做写作权限守卫（读者组拒绝）。
  */
 
-/** 同步我的组：已在组内返回现组；未归组则按"首个用户=管理员，其余=读者"落组。 */
+/** 同步我的组：已在组内返回现组；未归组则按"首个用户=管理员，其余=读者"落组。
+ * 收到 401（账号被封禁/未激活/会话失效）时服务端已拒绝该用户，同步清除本地会话。 */
 export async function syncMyGroupKey(): Promise<UserGroupKey> {
-  const headers = await authedHeaders()
-  const result = await syncMyGroup({ headers })
-  if (!result.ok) throw new Error(result.message)
-  return result.group
+  try {
+    const headers = await authedHeaders()
+    const result = await syncMyGroup({ headers })
+    if (!result.ok) throw new Error(result.message)
+    return result.group
+  } catch (e) {
+    if (errorStatus(e) === 401) clearSession()
+    throw e
+  }
 }
 
 /**
@@ -46,5 +54,12 @@ export async function fetchBlogUsers(): Promise<BlogUserView[]> {
 export async function changeUserGroup(input: { userId: string; group: UserGroupKey }): Promise<void> {
   const headers = await authedHeaders()
   const result = await setUserGroup({ data: input, headers })
+  if (!result.ok) throw new Error(result.message)
+}
+
+/** 封禁/解封用户（管理员专用；服务端拒绝自封与封禁末位管理员）。 */
+export async function changeUserStatus(input: { userId: string; status: SettableUserStatus }): Promise<void> {
+  const headers = await authedHeaders()
+  const result = await setUserStatus({ data: input, headers })
   if (!result.ok) throw new Error(result.message)
 }

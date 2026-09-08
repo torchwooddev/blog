@@ -8,7 +8,7 @@ import { PasswordInput } from '#/components/password-input'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
-import { describeError } from '#/lib/errors'
+import { describeError, isAccountNotActive } from '#/lib/errors'
 import { settingsFromMatches } from '#/lib/site-settings'
 import { syncMyGroupKey } from '#/lib/user-group-client'
 import type { UserGroupKey } from '#/lib/user-groups'
@@ -56,7 +56,9 @@ function LoginPage() {
       toast.success(`欢迎回来，${account.name || account.email}`)
       void navigate({ to: group === 'reader' ? '/' : '/admin' })
     },
-    onError: (e: unknown) => toast.error(describeError(e)),
+    onError: (e: unknown) =>
+      // 封禁/未激活账号的登录会被后端以 401 拒绝，与"密码错误"同码不同义，细分文案。
+      toast.error(isAccountNotActive(e) ? '该账号已被封禁，请联系站点管理员。' : describeError(e)),
   })
 
   return (

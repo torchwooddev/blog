@@ -34,7 +34,7 @@ import type { Category } from '#/lib/types'
  * 删除执行引用完整性协议：仍被已发布文章引用时拒绝删除。
  * 写动作的服务端 handler 校验终端用户 JWT（B-01），故调用时附带 Authorization 头。
  */
-export function CategoryManager({ onChange }: { onChange: () => void }) {
+export function CategoryManager({ onChange }: { onChange?: () => void }) {
   const queryClient = useQueryClient()
   const categories = useQuery(categoriesOptions())
   const [name, setName] = useState('')
@@ -46,7 +46,7 @@ export function CategoryManager({ onChange }: { onChange: () => void }) {
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ['categories'] })
-    onChange()
+    onChange?.()
   }
 
   const createMutation = useMutation({

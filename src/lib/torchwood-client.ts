@@ -170,7 +170,8 @@ export function ensureSessionRestored(): Promise<void> {
   return restorePromise
 }
 
-function clearSession(): void {
+/** 清除本地会话状态（不动服务端——服务端已拒绝该用户时使用，如封禁/会话过期）。 */
+export function clearSession(): void {
   saveStoredTokens(null)
   saveCachedAccount(null)
   tw.setAccessToken(undefined)
@@ -241,6 +242,15 @@ export async function logout(): Promise<void> {
   } finally {
     clearSession()
   }
+}
+
+/**
+ * 自助修改密码（Client 账号 API，服务端校验旧密码——旧密码错误报
+ * Unauthenticated/401）。改密不影响当前会话 token，下次登录用新密码。
+ */
+export async function changePassword(oldPassword: string, newPassword: string): Promise<void> {
+  await ensureFreshAccessToken()
+  await tw.account.updateAccount({ password: newPassword, old_password: oldPassword })
 }
 
 // ---------------------------------------------------------------------------

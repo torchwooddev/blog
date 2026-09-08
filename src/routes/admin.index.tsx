@@ -1,11 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, Navigate, createFileRoute } from '@tanstack/react-router'
-import { Eye, EyeOff, FileEdit, FilePlus2, Inbox, Loader2, Settings, Trash2, Users } from 'lucide-react'
+import { Link, createFileRoute } from '@tanstack/react-router'
+import { Eye, EyeOff, FileEdit, FilePlus2, Inbox, Loader2, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { CategoryManager } from '#/components/category-manager'
 import { EmptyState } from '#/components/empty-state'
-import { ReaderNotice } from '#/components/reader-notice'
 import { Button } from '#/components/ui/button'
 import {
   AlertDialog,
@@ -32,8 +30,6 @@ import { settingsFromMatches } from '#/lib/site-settings'
 import { cleanupCommentsForPost } from '#/server/admin.functions'
 import { deleteStorageFiles } from '#/server/storage.functions'
 import { useAuth } from '#/lib/torchwood-client'
-import { useMyGroup } from '#/lib/user-group-client'
-import { USER_GROUPS, type UserGroupKey } from '#/lib/user-groups'
 import { cn } from 'cn'
 import type { Post } from '#/lib/types'
 
@@ -42,44 +38,17 @@ type StatusFilter = 'all' | 'published' | 'draft'
 export const Route = createFileRoute('/admin/')({
   head: ({ matches }) => ({
     meta: [
-      { title: `写作台 · ${settingsFromMatches(matches).siteName}` },
+      { title: `我的文章 · ${settingsFromMatches(matches).siteName}` },
       { name: 'robots', content: 'noindex' },
     ],
   }),
   component: AdminPage,
 })
 
+/** 布局路由 /admin 已完成登录与分组守卫，这里只渲染工作区内容。 */
 function AdminPage() {
   const auth = useAuth()
-
-  if (auth.status === 'restoring') return <AdminSkeleton />
-  // 客户端守卫：未登录不允许进入写作台。
-  if (auth.status === 'signedOut' || !auth.account) return <Navigate to="/login" replace />
-  return <AdminEntrance userId={auth.account.id} />
-}
-
-/**
- * 用户组守卫：读者组不可进入写作台（可以阅读与评论）。组未知（查询失败）
- * 时保守放行——与既有"登录即可写作"行为一致，避免网络抖动锁死作者。
- */
-function AdminEntrance({ userId }: { userId: string }) {
-  const group = useMyGroup(userId)
-  if (group.isPending) return <AdminSkeleton />
-  if (group.data === 'reader') return <ReaderNotice />
-  return <AdminHome userId={userId} viewerGroup={group.data ?? 'author'} />
-}
-
-function AdminSkeleton() {
-  return (
-    <div className="mx-auto max-w-3xl space-y-8 py-4">
-      <Skeleton className="h-9 w-36" />
-      <div className="space-y-1">
-        {[0, 1, 2].map((i) => (
-          <Skeleton key={i} className="h-14 w-full" />
-        ))}
-      </div>
-    </div>
-  )
+  return <AdminHome userId={auth.account?.id ?? ''} />
 }
 
 function StatusDot({ published }: { published: boolean }) {
@@ -90,7 +59,7 @@ function StatusDot({ published }: { published: boolean }) {
   )
 }
 
-function AdminHome({ userId, viewerGroup }: { userId: string; viewerGroup: UserGroupKey }) {
+function AdminHome({ userId }: { userId: string }) {
   const queryClient = useQueryClient()
   const [pendingDelete, setPendingDelete] = useState<Post | null>(null)
   const [filter, setFilter] = useState<StatusFilter>('all')
@@ -157,41 +126,20 @@ function AdminHome({ userId, viewerGroup }: { userId: string; viewerGroup: UserG
   ]
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
-      <header className="flex flex-wrap items-center justify-between gap-4 pt-4">
+    <div className="space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">写作台</h1>
+          <h1 className="text-2xl font-bold tracking-tight">我的文章</h1>
           <p className="mt-1 text-[13px] text-muted-foreground">
-            共 {posts.length} 篇 · 已发布 {publishedCount} · 草稿 {draftCount} ·{' '}
-            <span title={USER_GROUPS[viewerGroup].description}>
-              你的用户组：{USER_GROUPS[viewerGroup].name}
-            </span>
+            共 {posts.length} 篇 · 已发布 {publishedCount} · 草稿 {draftCount}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {viewerGroup === 'admin' ? (
-            <>
-              <Button asChild size="sm" variant="outline" className="rounded-full px-4">
-                <Link to="/admin/settings">
-                  <Settings className="size-4" />
-                  站点设置
-                </Link>
-              </Button>
-              <Button asChild size="sm" variant="outline" className="rounded-full px-4">
-                <Link to="/admin/users">
-                  <Users className="size-4" />
-                  用户管理
-                </Link>
-              </Button>
-            </>
-          ) : null}
-          <Button asChild size="sm" className="rounded-full px-4">
-            <Link to="/admin/new">
-              <FilePlus2 className="size-4" />
-              新建文章
-            </Link>
-          </Button>
-        </div>
+        <Button asChild size="sm" className="rounded-full px-4">
+          <Link to="/admin/new">
+            <FilePlus2 className="size-4" />
+            新建文章
+          </Link>
+        </Button>
       </header>
 
       <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="按状态筛选">
@@ -291,8 +239,6 @@ function AdminHome({ userId, viewerGroup }: { userId: string; viewerGroup: UserG
           ))}
         </ul>
       )}
-
-      <CategoryManager onChange={invalidate} />
 
       <AlertDialog open={pendingDelete !== null} onOpenChange={(open) => !open && setPendingDelete(null)}>
         <AlertDialogContent>

@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query'
-import { Link, createRootRouteWithContext, HeadContent, Outlet, Scripts, useRouter } from '@tanstack/react-router'
+import { Link, createRootRouteWithContext, HeadContent, Outlet, Scripts, useRouter, useRouterState } from '@tanstack/react-router'
 import { AlertTriangle, ArrowLeft, RotateCw } from 'lucide-react'
 import { Toaster } from '#/components/ui/sonner'
 import { ThemeProvider } from '#/components/theme-provider'
@@ -54,6 +54,17 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 })
 
 function AppShell() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  // 工作台（/admin/*）是独立的控制台外壳（左侧菜单 + 工作区，见 admin-shell.tsx），
+  // 不套公开博客页的页头/页脚；公开页布局保持原样，互不影响。
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+    return (
+      <div className="min-h-svh bg-background">
+        <Outlet />
+        <Toaster position="top-center" />
+      </div>
+    )
+  }
   return (
     <div className="flex min-h-svh flex-col bg-background">
       <SiteHeader />

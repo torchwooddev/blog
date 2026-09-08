@@ -99,6 +99,16 @@ export function isUnauthenticated(e: unknown): boolean {
 }
 
 /**
+ * 账号被封禁/未激活（登录被拒）。网关等价形态例外：后端把"账号非 active"折叠进
+ * `Unauthenticated`/401、无独立域码，只能在登录这个固定调用点按 message 文本细分
+ * （与 OCC 的 message 前缀例外同一性质）；其余错误仍一律按 code 判别。
+ */
+export function isAccountNotActive(e: unknown): boolean {
+  const tw = asTorchwoodError(e)
+  return !!tw && tw.code === 'Unauthenticated' && tw.status === 401 && (tw.message ?? '').includes('not active')
+}
+
+/**
  * OCC 重读重试一次：`op` 用给定版本执行一次写；
  * 遇到 DOCUMENT.VERSION_CONFLICT 时调 `readVersion` 拿最新版本重试一次。
  */
