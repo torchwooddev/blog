@@ -94,6 +94,10 @@ npm run test         # vitest（错误映射 / markdown 消毒 / 版本归一化
 浏览器端配置随之生效——换环境/项目只需改环境变量重启，**无需重新构建镜像**。
 （`import.meta.env.VITE_*` 仅作为静态预览等场景的构建期兜底。）
 
+> 登录/注册支持 GitHub OAuth2：需在 GitHub（OAuth App）与 Torchwood 控制台
+> （provider）各做一次配置，应用侧零配置项，
+> 见 [docs/github-oauth-login.md](docs/github-oauth-login.md)。
+
 ## 部署（Dokploy · GitHub Actions + GHCR）
 
 > 另有免容器的 Cloudflare Workers 部署路径（`npm run build:worker` + `npx wrangler deploy`），

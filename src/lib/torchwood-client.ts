@@ -254,6 +254,45 @@ export async function changePassword(oldPassword: string, newPassword: string): 
 }
 
 // ---------------------------------------------------------------------------
+// GitHub OAuth2 登录（浏览器直连网关的授权码流，与密码登录共用一套会话）
+// ---------------------------------------------------------------------------
+
+/** 网关完成 GitHub 授权后回跳的本站地址。 */
+const OAUTH_CALLBACK_PATH = '/auth/github/callback'
+
+/** success/failure 必须是绝对地址：优先用当前 origin（镜像可多域名部署）。 */
+function oauthCallbackOrigin(): string {
+  return typeof window === 'undefined' ? publicConfig.siteUrl : window.location.origin
+}
+
+/**
+ * 发起 GitHub 登录：向网关换取授权页地址并整页跳走。
+ * GitHub 授权完成后回跳 success（由回调页用 code 换会话）；
+ * 取消/失败回跳来源页并带 oauth=failed（登录/注册页据此提示）。
+ */
+export async function startGithubLogin(): Promise<void> {
+  const origin = oauthCallbackOrigin()
+  const { redirect_url } = await tw.account.createOAuth2Session({
+    provider: 'github',
+    success: `${origin}${OAUTH_CALLBACK_PATH}`,
+    failure: `${origin}${window.location.pathname}?oauth=failed`,
+  })
+  window.location.href = redirect_url
+}
+
+/** GitHub 回跳后用 code 换会话：写同一套 localStorage + 内存会话，与密码登录无差别。 */
+export async function completeGithubLogin(code: string, state: string): Promise<Account> {
+  const result = await tw.account.createOAuth2TokenSession({
+    provider: 'github',
+    code,
+    state,
+    success: `${oauthCallbackOrigin()}${OAUTH_CALLBACK_PATH}`,
+  })
+  applyAuthResult(result)
+  return result.account
+}
+
+// ---------------------------------------------------------------------------
 // Realtime 单连接（登录后才可用：Realtime 网关拒绝匿名与 API Key）
 // ---------------------------------------------------------------------------
 

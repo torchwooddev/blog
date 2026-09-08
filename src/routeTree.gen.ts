@@ -30,6 +30,7 @@ import { Route as ApiUploadRouteImport } from './routes/api/upload'
 import { Route as CategoriesSlugRouteImport } from './routes/categories.$slug'
 import { Route as PostsSlugRouteImport } from './routes/posts.$slug'
 import { Route as TagsSlugRouteImport } from './routes/tags.$slug'
+import { Route as AuthGithubCallbackRouteImport } from './routes/auth.github.callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -136,6 +137,11 @@ const TagsSlugRoute = TagsSlugRouteImport.update({
   path: '/tags/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthGithubCallbackRoute = AuthGithubCallbackRouteImport.update({
+  id: '/auth/github/callback',
+  path: '/auth/github/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -159,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/posts/$slug': typeof PostsSlugRoute
   '/tags/$slug': typeof TagsSlugRoute
   '/admin/': typeof AdminIndexRoute
+  '/auth/github/callback': typeof AuthGithubCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -181,6 +188,7 @@ export interface FileRoutesByTo {
   '/posts/$slug': typeof PostsSlugRoute
   '/tags/$slug': typeof TagsSlugRoute
   '/admin': typeof AdminIndexRoute
+  '/auth/github/callback': typeof AuthGithubCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -205,6 +213,7 @@ export interface FileRoutesById {
   '/posts/$slug': typeof PostsSlugRoute
   '/tags/$slug': typeof TagsSlugRoute
   '/admin/': typeof AdminIndexRoute
+  '/auth/github/callback': typeof AuthGithubCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -230,6 +239,7 @@ export interface FileRouteTypes {
     | '/posts/$slug'
     | '/tags/$slug'
     | '/admin/'
+    | '/auth/github/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -252,6 +262,7 @@ export interface FileRouteTypes {
     | '/posts/$slug'
     | '/tags/$slug'
     | '/admin'
+    | '/auth/github/callback'
   id:
     | '__root__'
     | '/'
@@ -275,6 +286,7 @@ export interface FileRouteTypes {
     | '/posts/$slug'
     | '/tags/$slug'
     | '/admin/'
+    | '/auth/github/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -293,6 +305,7 @@ export interface RootRouteChildren {
   CategoriesSlugRoute: typeof CategoriesSlugRoute
   PostsSlugRoute: typeof PostsSlugRoute
   TagsSlugRoute: typeof TagsSlugRoute
+  AuthGithubCallbackRoute: typeof AuthGithubCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -444,6 +457,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TagsSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/github/callback': {
+      id: '/auth/github/callback'
+      path: '/auth/github/callback'
+      fullPath: '/auth/github/callback'
+      preLoaderRoute: typeof AuthGithubCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -483,6 +503,7 @@ const rootRouteChildren: RootRouteChildren = {
   CategoriesSlugRoute: CategoriesSlugRoute,
   PostsSlugRoute: PostsSlugRoute,
   TagsSlugRoute: TagsSlugRoute,
+  AuthGithubCallbackRoute: AuthGithubCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

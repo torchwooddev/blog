@@ -1,18 +1,19 @@
 import { useMutation } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Github, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { AuthShell } from '#/components/auth-shell'
 import { PasswordInput } from '#/components/password-input'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
+import { Separator } from '#/components/ui/separator'
 import { describeError } from '#/lib/errors'
 import { settingsFromMatches } from '#/lib/site-settings'
 import { syncMyGroupKey } from '#/lib/user-group-client'
 import { USER_GROUPS, type UserGroupKey } from '#/lib/user-groups'
-import { register, useAuth } from '#/lib/torchwood-client'
+import { register, startGithubLogin, useAuth } from '#/lib/torchwood-client'
 
 export const Route = createFileRoute('/register')({
   head: ({ matches }) => ({
@@ -21,15 +22,23 @@ export const Route = createFileRoute('/register')({
       { name: 'robots', content: 'noindex' },
     ],
   }),
+  // oauth=failed：GitHub 授权失败/取消后由网关重定向回来的标记。
+  // 返回类型键必须可选，否则全站 <Link to="/register"> 都会被要求传 search。
+  validateSearch: (search: Record<string, unknown>): { oauth?: string } => {
+    const oauth = search['oauth']
+    return typeof oauth === 'string' ? { oauth } : {}
+  },
   component: RegisterPage,
 })
 
 function RegisterPage() {
   const auth = useAuth()
   const navigate = useNavigate()
+  const { oauth } = Route.useSearch()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [githubPending, setGithubPending] = useState(false)
   // 区分"本次注册成功"与"带着已有会话误入本页"：前者由 onSuccess 按组分流，
   // 后者直接回首页（读者组进写作台只会看到提示页）。
   const justRegistered = useRef(false)
@@ -37,6 +46,16 @@ function RegisterPage() {
   useEffect(() => {
     if (auth.status === 'signedIn' && !justRegistered.current) void navigate({ to: '/' })
   }, [auth.status, navigate])
+
+  async function handleGithubLogin(): Promise<void> {
+    setGithubPending(true)
+    try {
+      await startGithubLogin()
+    } catch (e) {
+      toast.error(describeError(e))
+      setGithubPending(false)
+    }
+  }
 
   const mutation = useMutation({
     // 注册即登录：成功后同步默认用户组（首个注册用户→管理员，其余→读者），
@@ -81,6 +100,11 @@ function RegisterPage() {
         </>
       }
     >
+      {oauth === 'failed' ? (
+        <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm leading-5 text-destructive">
+          GitHub 登录没有完成，请重试或改用邮箱注册。
+        </p>
+      ) : null}
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -126,6 +150,21 @@ function RegisterPage() {
           {mutation.isPending ? '注册中…' : '注册并登录'}
         </Button>
       </form>
+      <div className="mt-6 flex items-center gap-3">
+        <Separator className="flex-1" />
+        <span className="text-xs text-muted-foreground">或</span>
+        <Separator className="flex-1" />
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        className="mt-6 w-full"
+        disabled={githubPending}
+        onClick={() => void handleGithubLogin()}
+      >
+        {githubPending ? <Loader2 className="size-4 animate-spin" /> : <Github />}
+        {githubPending ? '正在跳转 GitHub…' : '使用 GitHub 注册'}
+      </Button>
     </AuthShell>
   )
 }
