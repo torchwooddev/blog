@@ -1,0 +1,27 @@
+// Cloudflare Workers 部署配置（源）。
+// Nitro 构建时（npm run build:worker）会读取本文件并合并进生成的
+// .output/server/wrangler.json——`main`/`assets`/`compatibility_date`/
+// `compatibility_flags` 由 Nitro 依据产物自动写入，请勿在这里重复声明。
+// 部署步骤见 docs/deploy-cloudflare.md。
+{
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  "name": "torchwood-blog",
+  // 非敏感运行时变量（SSR 与 /config.js 读取 process.env；nodejs_compat 下
+  // Workers 会把 vars/secrets 注入 process.env）。密钥不放这里：
+  //   npx wrangler secret put BLOG_TORCHWOOD_API_KEY
+  "vars": {
+    // Workers 必须能公网访问的 Torchwood 网关地址（localhost 仅本地 wrangler dev 可用）
+    "BLOG_TORCHWOOD_ENDPOINT": "http://localhost:9080",
+    "BLOG_TORCHWOOD_PROJECT_ID": "blog",
+    // 首次部署、后端还是空库时想灌种子数据，可临时改为 "true" 再部署一次
+    "BLOG_SEED": "false",
+    // 站点公开信息（RSS/sitemap/OG 的绝对地址等）
+    "VITE_SITE_NAME": "My Blog",
+    "VITE_SITE_URL": "https://torchwood-blog.example.workers.dev",
+    "VITE_SITE_DESCRIPTION": "记录、思考与分享",
+    "VITE_SITE_FOOTER_NOTE": ""
+  },
+  "observability": {
+    "enabled": true
+  }
+}

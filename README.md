@@ -96,6 +96,9 @@ npm run test         # vitest（错误映射 / markdown 消毒 / 版本归一化
 
 ## 部署（Dokploy · GitHub Actions + GHCR）
 
+> 另有免容器的 Cloudflare Workers 部署路径（`npm run build:worker` + `npx wrangler deploy`），
+> 见 [docs/deploy-cloudflare.md](docs/deploy-cloudflare.md)。
+
 链路：push `main`（或打 `v*` tag）→ Actions 质量门（`npm run check` + `test`）→ buildx 多阶段构建
 → 推镜像到 `ghcr.io/torchwooddev/blog`（`latest` + `sha-<hash>`，tag 发布再加 semver）
 → 回调 Dokploy Deploy Webhook → Dokploy 拉新镜像重部署。

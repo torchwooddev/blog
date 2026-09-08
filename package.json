@@ -10,6 +10,7 @@
     "dev": "vite dev --port 3000",
     "generate-routes": "tsr generate",
     "build": "vite build",
+    "build:worker": "node scripts/build-worker.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "check:server-only": "node scripts/check-server-only.mjs",
