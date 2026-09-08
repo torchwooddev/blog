@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { COLLECTIONS, DATABASE_ID } from '#/lib/blog-schema'
-import { parseVersion } from '#/lib/types'
+import { parseVersion, slugify } from '#/lib/types'
 import { getServerTorchwood } from './torchwood.server'
 import { ensureBlogReady } from './provision.server'
 import { getServerFnRequest, requireAuthenticatedUser } from './auth.server'
@@ -40,6 +40,47 @@ export interface CategoryDeleted {
 
 export type DeleteCategoryResult = CategoryDeleted | CategoryInUse | { ok: false; reason: 'NOT_FOUND' } | { ok: false; reason: 'ERROR'; message: string }
 
+/** 创建（分类/标签）共用的结果形态。 */
+export type CreateTaxonomyResult = { ok: true; id: string } | { ok: false; message: string }
+
+/**
+ * 按 slug 幂等创建分类/标签文档（document_id = `<prefix>-<slug>`，slug 有 unique
+ * 索引——已存在时返回已有的 id 而不是冲突报错，编辑器"选不到就建一个"的路径
+ * 不应被并发或重复提交打断。
+ */
+async function createTaxonomyDoc(
+  collection: 'categories' | 'tags',
+  prefix: 'cat' | 'tag',
+  name: string,
+  slug: string,
+): Promise<CreateTaxonomyResult> {
+  await ensureBlogReady()
+  const tw = getServerTorchwood()
+  const id = `${prefix}-${slug}`
+  try {
+    // 已存在（他人建过 / 重复提交）→ 幂等返回既有 id。
+    await tw.server.databases.getDocument(DATABASE_ID, COLLECTIONS[collection], id)
+    return { ok: true, id }
+  } catch {
+    // 不存在 → 继续创建。
+  }
+  try {
+    await tw.server.databases.createDocument(DATABASE_ID, COLLECTIONS[collection], {
+      document_id: id,
+      data: { name, slug },
+    })
+    return { ok: true, id }
+  } catch (e) {
+    // 竞态：check-then-create 之间被并发创建。回读一次，仍不存在才报错。
+    try {
+      await tw.server.databases.getDocument(DATABASE_ID, COLLECTIONS[collection], id)
+      return { ok: true, id }
+    } catch {
+      return { ok: false, message: e instanceof Error ? e.message : String(e) }
+    }
+  }
+}
+
 export const createCategory = createServerFn({ method: 'POST' })
   .validator((input: unknown) => {
     const raw = (input ?? {}) as { name?: unknown; slug?: unknown }
@@ -48,18 +89,31 @@ export const createCategory = createServerFn({ method: 'POST' })
       slug: typeof raw.slug === 'string' ? raw.slug.trim() : '',
     }
   })
-  .handler(async ({ data }): Promise<{ ok: true; id: string } | { ok: false; message: string }> => {
+  .handler(async ({ data }): Promise<CreateTaxonomyResult> => {
     const auth = await requireUserMessage()
     if (!auth.ok) return auth
-    if (!data.name || !data.slug) return { ok: false, message: '分类名和 slug 都不能为空。' }
-    await ensureBlogReady()
-    const tw = getServerTorchwood()
-    const id = `cat-${data.slug}`
-    await tw.server.databases.createDocument(DATABASE_ID, COLLECTIONS.categories, {
-      document_id: id,
-      data: { name: data.name, slug: data.slug },
-    })
-    return { ok: true, id }
+    const name = data.name
+    const slug = slugify(data.slug || data.name)
+    if (!name || !slug) return { ok: false, message: '分类名和 slug 都不能为空。' }
+    return createTaxonomyDoc('categories', 'cat', name, slug)
+  })
+
+/**
+ * 新建标签（编辑器"输入标签名，回车添加"的后端）。此前标签只能由种子数据产生，
+ * 全应用没有任何创建入口——空库里标签区永远为空。
+ */
+export const createTag = createServerFn({ method: 'POST' })
+  .validator((input: unknown) => {
+    const raw = (input ?? {}) as { name?: unknown }
+    return { name: typeof raw.name === 'string' ? raw.name.trim() : '' }
+  })
+  .handler(async ({ data }): Promise<CreateTaxonomyResult> => {
+    const auth = await requireUserMessage()
+    if (!auth.ok) return auth
+    if (!data.name) return { ok: false, message: '标签名不能为空。' }
+    const slug = slugify(data.name)
+    if (!slug) return { ok: false, message: '无法从标签名生成有效 slug，请换一个名字。' }
+    return createTaxonomyDoc('tags', 'tag', data.name, slug)
   })
 
 export const deleteCategory = createServerFn({ method: 'POST' })

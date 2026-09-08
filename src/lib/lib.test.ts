@@ -1,6 +1,6 @@
 import { describe, expect, it, afterEach, vi } from 'vitest'
 import { describeError, isVersionConflict, withOccRetry } from './errors'
-import { excerpt, parseVersion, slugify } from './types'
+import { excerpt, parseVersion, slugify, slugifyStrict } from './types'
 import { renderMarkdown } from './markdown'
 import { TorchwoodError } from '@torchwood/sdk'
 import type { PublicConfig } from './config'
@@ -51,6 +51,14 @@ describe('types', () => {
   it('slugify 生成安全 slug', () => {
     expect(slugify('Hello Torchwood!')).toBe('hello-torchwood')
     expect(slugify('')).toMatch(/^post-/)
+  })
+
+  it('slugifyStrict 保留 CJK，空/纯符号输入返回空串（不灌时间戳兜底）', () => {
+    expect(slugifyStrict('测试')).toBe('测试')
+    expect(slugifyStrict('te st')).toBe('te-st')
+    expect(slugifyStrict('Hello Torchwood!')).toBe('hello-torchwood')
+    expect(slugifyStrict('')).toBe('')
+    expect(slugifyStrict('!!!')).toBe('')
   })
 
   it('excerpt 剥除 markdown 标记', () => {

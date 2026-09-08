@@ -193,11 +193,19 @@ export function excerpt(markdown: string, maxLen = 140): string {
 
 /** slug 工具：作者输入中文标题时自动生成可用 slug。 */
 export function slugify(input: string): string {
-  const base = input
+  return slugifyStrict(input) || `post-${Date.now().toString(36)}`
+}
+
+/**
+ * slugify 的严格版：输入规整后为空（空串/纯符号）时返回空串，而不是时间戳兜底。
+ * 编辑器的受控输入用这版——逐键把 "post-lxxx" 兜底值写进输入框会覆盖用户正在
+ * 输入的内容（尤其 IME 组合态），是 slug 字段"打到一半出现怪值"的来源。
+ */
+export function slugifyStrict(input: string): string {
+  return input
     .toLowerCase()
     .trim()
     .replace(/[^\p{L}\p{N}]+/gu, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 60)
-  return base || `post-${Date.now().toString(36)}`
 }

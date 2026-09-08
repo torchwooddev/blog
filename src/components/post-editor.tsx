@@ -9,6 +9,7 @@ import {
   FileUp,
   Loader2,
   Paperclip,
+  Plus,
   Save,
   Trash2,
   X,
@@ -25,6 +26,14 @@ import {
   AlertDialogTitle,
 } from '#/components/ui/alert-dialog'
 import { Button } from '#/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '#/components/ui/dialog'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import {
@@ -50,8 +59,12 @@ import { authedHeaders } from '#/lib/authed-call'
 import { formatBytes, formatDate } from '#/lib/format'
 import { renderArticleHtml, countWords, readingMinutes } from '#/lib/post-utils'
 import { categoriesOptions, filesOptions, tagsOptions } from '#/lib/query-options'
-import { slugify } from '#/lib/types'
-import { cleanupCommentsForPost } from '#/server/admin.functions'
+import { slugifyStrict } from '#/lib/types'
+import {
+  cleanupCommentsForPost,
+  createCategory,
+  createTag,
+} from '#/server/admin.functions'
 import { deleteStorageFiles } from '#/server/storage.functions'
 import { useAuth } from '#/lib/torchwood-client'
 import { cn } from 'cn'
@@ -99,6 +112,13 @@ export function PostEditor({ post }: PostEditorProps) {
   const [savedPost, setSavedPost] = useState<Post | null>(post)
   const [savedSnapshot, setSavedSnapshot] = useState(() => contentOf(toState(post)))
   const [pendingDelete, setPendingDelete] = useState(false)
+  // 分类内联新建（部署站没有种子数据时，分类下拉是空的，没有创建入口就永远存不了）。
+  const [creatingCategory, setCreatingCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [newCategorySlug, setNewCategorySlug] = useState('')
+  const [newCategorySlugTouched, setNewCategorySlugTouched] = useState(false)
+  // 标签：输入名称回车添加（已存在则选中，不存在则创建）。
+  const [tagDraft, setTagDraft] = useState('')
 
   const categories = useQuery(categoriesOptions())
   const tags = useQuery(tagsOptions())
@@ -225,6 +245,42 @@ export function PostEditor({ post }: PostEditorProps) {
     onError: (e: unknown) => toast.error(describeError(e)),
   })
 
+  const createCategoryMutation = useMutation({
+    mutationFn: async () =>
+      createCategory({ data: { name: newCategoryName.trim(), slug: newCategorySlug.trim() }, headers: await authedHeaders() }),
+    onSuccess: (result) => {
+      if (result.ok) {
+        void queryClient.invalidateQueries({ queryKey: ['categories'] })
+        patch({ categoryId: result.id })
+        setCreatingCategory(false)
+        setNewCategoryName('')
+        setNewCategorySlug('')
+        setNewCategorySlugTouched(false)
+        toast.success('分类已创建并选中')
+      } else {
+        toast.error(result.message)
+      }
+    },
+    onError: (e: unknown) => toast.error(describeError(e)),
+  })
+
+  const addTagMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const existing = (tags.data ?? []).find((t) => t.name.toLowerCase() === name.toLowerCase())
+      if (existing) return { ok: true as const, id: existing.id, created: false }
+      const result = await createTag({ data: { name }, headers: await authedHeaders() })
+      if (!result.ok) throw new Error(result.message)
+      return { ok: true as const, id: result.id, created: true }
+    },
+    onSuccess: ({ id, created }) => {
+      if (created) void queryClient.invalidateQueries({ queryKey: ['tags'] })
+      if (!state.tagIds.includes(id)) patch({ tagIds: [...state.tagIds, id] })
+      setTagDraft('')
+      toast.success(created ? '标签已创建并添加' : '标签已添加')
+    },
+    onError: (e: unknown) => toast.error(describeError(e)),
+  })
+
   const previewHtml = useMemo(() => renderArticleHtml(state.content), [state.content])
   const busy = saveMutation.isPending || publishMutation.isPending || deleteMutation.isPending
   const canSave = state.title.trim().length > 0 && state.slug.trim().length > 0 && state.categoryId !== '' && !busy
@@ -234,7 +290,8 @@ export function PostEditor({ post }: PostEditorProps) {
     if (!canSave) return
     saveMutation.mutate({
       title: state.title.trim(),
-      slug: state.slug.trim(),
+      // 入库前再规整一次（输入框内保持用户原文，见 slug onBlur 的说明）。
+      slug: slugifyStrict(state.slug) || slugifyStrict(state.title),
       content: state.content,
       categoryId: state.categoryId,
       tagIds: state.tagIds,
@@ -333,9 +390,15 @@ export function PostEditor({ post }: PostEditorProps) {
             onChange={(e) =>
               patch({
                 title: e.target.value,
-                slug: state.slugTouched ? state.slug : slugify(e.target.value),
+                // 自动派生 slug 只写 slug 输入框、不改写正在输入的标题本身；
+                // 用严格版避免把 "post-<时间戳>" 兜底值灌进表单。
+                slug: state.slugTouched ? state.slug : slugifyStrict(e.target.value),
               })
             }
+            onBlur={() => {
+              // 标题输入结束且未手动改过 slug 时再补一次派生（处理输入中途的过渡态）。
+              if (!state.slugTouched) patch({ slug: slugifyStrict(state.title) })
+            }}
             placeholder="文章标题"
             className="w-full bg-transparent text-3xl font-extrabold tracking-tight outline-none placeholder:text-muted-foreground/40"
             aria-label="标题"
@@ -436,6 +499,19 @@ export function PostEditor({ post }: PostEditorProps) {
               {saveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
               {savedPost ? '保存修改' : '保存为草稿'}
             </Button>
+            {!canSave && !busy ? (
+              <p className="text-xs text-muted-foreground">
+                还需要：
+                {[
+                  state.title.trim() ? null : '标题',
+                  state.slug.trim() ? null : 'Slug',
+                  state.categoryId !== '' ? null : '分类',
+                ]
+                  .filter(Boolean)
+                  .join('、')}
+                。
+              </p>
+            ) : null}
           </section>
 
           <section className="space-y-2 border-t pt-6">
@@ -445,14 +521,28 @@ export function PostEditor({ post }: PostEditorProps) {
             <Input
               id="slug"
               value={state.slug}
-              onChange={(e) => patch({ slug: slugify(e.target.value), slugTouched: true })}
+              // 输入过程中保持原文（受控输入里逐键做有损 slugify 会和 IME 组合态
+              // 打架：拼音字母、分隔符等中间态被固化成连字符，删也删不掉），
+              // 失焦或保存时才规整为可用 slug。
+              onChange={(e) => patch({ slug: e.target.value, slugTouched: true })}
+              onBlur={() => patch({ slug: slugifyStrict(state.slug) || slugifyStrict(state.title) })}
               placeholder="自动按标题生成"
             />
             <p className="text-xs text-muted-foreground">/posts/&lt;slug&gt;</p>
           </section>
 
           <section className="space-y-2 border-t pt-6">
-            <Label className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">分类</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">分类</Label>
+              <button
+                type="button"
+                className="inline-flex items-center gap-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => setCreatingCategory(true)}
+              >
+                <Plus className="size-3" />
+                新建
+              </button>
+            </div>
             <Select value={state.categoryId} onValueChange={(value) => patch({ categoryId: value })}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="选择分类" />
@@ -465,6 +555,11 @@ export function PostEditor({ post }: PostEditorProps) {
                 ))}
               </SelectContent>
             </Select>
+            {(categories.data ?? []).length === 0 ? (
+              <p className="text-xs leading-5 text-muted-foreground">
+                还没有分类。点上方「新建」创建一个——文章必须归属分类才能保存。
+              </p>
+            ) : null}
           </section>
 
           <section className="space-y-2 border-t pt-6">
@@ -499,6 +594,26 @@ export function PostEditor({ post }: PostEditorProps) {
                 )
               })}
             </div>
+            <form
+              className="flex items-center gap-1.5"
+              onSubmit={(e) => {
+                e.preventDefault()
+                const name = tagDraft.trim()
+                if (name && !addTagMutation.isPending) addTagMutation.mutate(name)
+              }}
+            >
+              <Input
+                value={tagDraft}
+                onChange={(e) => setTagDraft(e.target.value)}
+                placeholder="输入标签名，回车添加"
+                className="h-8 text-xs"
+                aria-label="新标签名称"
+              />
+              <Button type="submit" variant="outline" size="sm" disabled={!tagDraft.trim() || addTagMutation.isPending}>
+                {addTagMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
+                添加
+              </Button>
+            </form>
           </section>
 
           <section className="space-y-2 border-t pt-6">
@@ -514,7 +629,18 @@ export function PostEditor({ post }: PostEditorProps) {
                     >
                       <span className="flex min-w-0 items-center gap-1.5">
                         {ref?.isImage ? (
-                          <img src={ref.previewUrl} alt="" className="h-6 w-6 rounded object-cover" />
+                          <img
+                            src={ref.previewUrl}
+                            alt=""
+                            loading="lazy"
+                            className="h-6 w-6 rounded object-cover"
+                            // 服务端缩略图首次生成较慢、偶发失败：加载失败回退到
+                            // 原图 view URL（决定性构造、公开桶匿名可读），不再破图。
+                            onError={(e) => {
+                              const img = e.currentTarget
+                              if (img.src !== ref.viewUrl) img.src = ref.viewUrl
+                            }}
+                          />
                         ) : (
                           <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />
                         )}
@@ -541,6 +667,70 @@ export function PostEditor({ post }: PostEditorProps) {
           </section>
         </aside>
       </div>
+
+      {/* 新建分类（编辑器内联；空库时分类下拉无选项、文章无法保存的出路） */}
+      <Dialog
+        open={creatingCategory}
+        onOpenChange={(open) => {
+          setCreatingCategory(open)
+          if (!open) {
+            setNewCategoryName('')
+            setNewCategorySlug('')
+            setNewCategorySlugTouched(false)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>新建分类</DialogTitle>
+            <DialogDescription>创建后自动选中，文章会归入该分类。</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="new-cat-name" className="text-xs text-muted-foreground">
+                分类名
+              </Label>
+              <Input
+                id="new-cat-name"
+                value={newCategoryName}
+                onChange={(e) => {
+                  setNewCategoryName(e.target.value)
+                  if (!newCategorySlugTouched) setNewCategorySlug(slugifyStrict(e.target.value))
+                }}
+                placeholder="如：工程实践"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-cat-slug" className="text-xs text-muted-foreground">
+                Slug
+              </Label>
+              <Input
+                id="new-cat-slug"
+                value={newCategorySlug}
+                onChange={(e) => {
+                  setNewCategorySlug(e.target.value)
+                  setNewCategorySlugTouched(true)
+                }}
+                onBlur={() => setNewCategorySlug(slugifyStrict(newCategorySlug))}
+                placeholder="engineering"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreatingCategory(false)}>
+              取消
+            </Button>
+            <Button
+              disabled={createCategoryMutation.isPending || !newCategoryName.trim() || !newCategorySlug.trim()}
+              onClick={() => createCategoryMutation.mutate()}
+            >
+              {createCategoryMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+              创建
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 删除确认 */}
       <AlertDialog open={pendingDelete} onOpenChange={setPendingDelete}>
