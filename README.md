@@ -159,7 +159,7 @@ realtime 需要 worker 进程在跑。
 | `posts` | `title`·`slug`·`content`·`category_id` (required)，`tag_ids` (string **array=true**)，`attachment_ids` (string **array=true**)，`published_at` (datetime 可选) | `slug` unique；`category_id` key | **`document_security=true`**：草稿 = 空 ACE 种子（创建者私有）；发布 = 授 `read:any` + 写 `published_at`（一次原子 update） |
 | `tags` | `name`·`slug` (required) | `slug` unique | 同 categories |
 | `comments` | `post_id`·`content` (required)，`author_id`·`author_name` (可选) | `post_id` key | `read:any` + `create:users`/`create:keys` + `delete:keys`（级联清理用） |
-| `settings` | 站点配置单例（`document_id='site'`）：`site_name`·`site_description`·`site_footer_note` (string)、`posts_per_page` (integer)、`comments_enabled` (boolean) | 无（按 id 点查单例） | 仅 `write:keys`——不开 `read:any`，读取一律经白名单 server fn；写入走管理员组判权的 `updateSiteSettings` |
+| `settings` | **通用 KV**：`key` (string, required)·`value` (string，恒为 JSON 编码) | `key` unique | 仅 `write:keys`——不开 `read:any`，读取一律经白名单 server fn；写入走管理员组判权的 `updateSiteSettings`。每项配置一行（`document_id=setting-<key>`），加新配置零 DDL；旧版列式单例由 provision 幂等迁移 |
 
 1:N = 引用属性 + key 索引；M:N = 数组属性（GIN 自动，`containsAny`/`containsAll` 查询）；
 slug → id 两段式解析（无跨集合 JOIN）。

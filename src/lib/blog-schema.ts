@@ -123,19 +123,17 @@ export const COLLECTION_DEFS: CollectionDef[] = [
   {
     id: COLLECTIONS.settings,
     name: '站点配置',
-    // 单例集合（document_id = 'site'），运行时站点配置的持久层：
-    // - 不开 read:any——读取一律经白名单 server fn（输出面由代码控制，
-    //   将来加入更敏感的配置也不会被匿名直读）；Server 面凭 write:keys 读写。
-    // - 无索引：只按固定 id 点查单例。
+    // 通用 KV 结构：每项配置一行文档（document_id = `setting-<key>`，key 唯一索引）。
+    // 新增配置 = 在 lib/site-settings.ts 声明键与解析，集合结构永不改、旧数据天然兼容。
+    // value 恒为 JSON 编码字符串（后端 json 列类型在本版本不可写，探针确认）。
+    // 不开 read:any——读取一律经白名单 server fn（输出面由代码控制，
+    // 将来加入更敏感的配置也不会被匿名直读）；Server 面凭 write:keys 读写。
     permissions: [...KEY_MANAGED],
     documentSecurity: false,
     attributes: [
-      { key: 'site_name', type: 'string' },
-      { key: 'site_description', type: 'string' },
-      { key: 'site_footer_note', type: 'string' },
-      { key: 'posts_per_page', type: 'integer' },
-      { key: 'comments_enabled', type: 'boolean' },
+      { key: 'key', type: 'string', required: true },
+      { key: 'value', type: 'string' },
     ],
-    indexes: [],
+    indexes: [{ id: 'by_key', type: 'unique', attributes: ['key'] }],
   },
 ]
