@@ -24,9 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '#/components/ui/alert-dialog'
-import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import {
@@ -55,6 +53,7 @@ import { slugify } from '#/lib/types'
 import { cleanupCommentsForPost } from '#/server/admin.functions'
 import { deleteStorageFiles } from '#/server/storage.functions'
 import { useAuth } from '#/lib/torchwood-client'
+import { cn } from 'cn'
 import type { FileRef, Post } from '#/lib/types'
 
 export interface PostEditorProps {
@@ -116,20 +115,29 @@ export function PostEditor({ post }: PostEditorProps) {
 
   const patch = (next: Partial<EditorState>) => setState((prev) => ({ ...prev, ...next }))
 
-  // 未保存离开守卫：路由内拦截（enableBeforeUnload 默认同时拦截关闭/刷新）。
+  // 未保存离开守卫：路由内拦截（SPA 导航）+ 仅在脏状态注册 beforeunload（关闭/刷新）。
   // 守卫读 ref 而非 state：保存成功后立即放行内部跳转（setState 尚未 flush 时守卫也能看到新快照）。
   const stateRef = useRef(state)
   stateRef.current = state
   const savedSnapshotRef = useRef(savedSnapshot)
-  const applySnapshot = (next: string) => {
+  function applySnapshot(next: string) {
     savedSnapshotRef.current = next
     setSavedSnapshot(next)
   }
   const blocker = useBlocker({
     shouldBlockFn: () => contentOf(stateRef.current) !== savedSnapshotRef.current,
+    enableBeforeUnload: false,
     withResolver: true,
   })
   const confirmLeave = blocker.status === 'blocked'
+  useEffect(() => {
+    if (!isDirty) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [isDirty])
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => uploadAttachment(file),
@@ -243,36 +251,44 @@ export function PostEditor({ post }: PostEditorProps) {
     return () => window.removeEventListener('keydown', onKey)
   })
 
+  const published = !!savedPost?.publishedAt
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Button asChild variant="ghost" size="icon" aria-label="返回列表">
+      <header className="flex flex-wrap items-center justify-between gap-3 pt-2">
+        <div className="flex items-center gap-2.5">
+          <Button asChild variant="ghost" size="icon-sm" aria-label="返回列表">
             <Link to="/admin">
               <ArrowLeft className="size-4" />
             </Link>
           </Button>
-          <div className="space-y-0.5">
-            <h1 className="text-xl font-bold tracking-tight">{savedPost ? '编辑文章' : '新建文章'}</h1>
-            <p className="text-xs text-muted-foreground">
-              {savedPost?.publishedAt
-                ? `发布于 ${formatDate(savedPost.publishedAt)}`
-                : '草稿保存后仅自己可见，发布后公开'}
-            </p>
+          <div className="flex items-center gap-2 text-sm">
+            <span
+              className={cn(
+                'size-2 rounded-full',
+                published ? 'bg-brand' : savedPost ? 'bg-muted-foreground/40' : 'bg-muted-foreground/40',
+              )}
+              aria-hidden
+            />
+            <span className="font-semibold">{savedPost ? '编辑文章' : '新建文章'}</span>
+            <span className="text-muted-foreground">
+              {published ? `· 发布于 ${formatDate(savedPost.publishedAt)}` : '· 草稿仅自己可见'}
+            </span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {savedPost?.publishedAt ? (
             <>
-              <Button asChild variant="outline" size="sm">
+              <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
                 <a href={`/posts/${savedPost.slug}`} target="_blank" rel="noreferrer">
                   <ExternalLink className="size-4" />
                   查看
                 </a>
               </Button>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
+                className="text-muted-foreground"
                 disabled={busy}
                 onClick={() => savedPost && publishMutation.mutate({ target: savedPost, publish: false })}
               >
@@ -283,6 +299,7 @@ export function PostEditor({ post }: PostEditorProps) {
           ) : savedPost ? (
             <Button
               size="sm"
+              className="rounded-full px-4"
               disabled={busy || isDirty}
               onClick={() => savedPost && publishMutation.mutate({ target: savedPost, publish: true })}
             >
@@ -305,15 +322,40 @@ export function PostEditor({ post }: PostEditorProps) {
         </div>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-        <Card className="gap-0 overflow-hidden py-0">
-          <Tabs value={state.preview ? 'preview' : 'write'} onValueChange={(v) => patch({ preview: v === 'preview' })}>
-            <div className="flex items-center justify-between border-b py-1.5 pr-3 pl-3">
-              <TabsList className="h-8 bg-transparent p-0">
-                <TabsTrigger value="write" className="px-3 data-[state=active]:shadow-none">
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_250px]">
+        {/* 书写区（Ghost 式无边框） */}
+        <div className="min-w-0">
+          <input
+            value={state.title}
+            onChange={(e) =>
+              patch({
+                title: e.target.value,
+                slug: state.slugTouched ? state.slug : slugify(e.target.value),
+              })
+            }
+            placeholder="文章标题"
+            className="w-full bg-transparent text-3xl font-extrabold tracking-tight outline-none placeholder:text-muted-foreground/40"
+            aria-label="标题"
+          />
+
+          <Tabs
+            value={state.preview ? 'preview' : 'write'}
+            onValueChange={(v) => patch({ preview: v === 'preview' })}
+            className="mt-5 gap-0"
+          >
+            <div className="flex items-center justify-between border-b pb-2">
+              <TabsList className="h-7 bg-transparent p-0">
+                <TabsTrigger
+                  value="write"
+                  className="px-0 text-[13px] data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=inactive]:text-muted-foreground"
+                >
                   编辑
                 </TabsTrigger>
-                <TabsTrigger value="preview" className="px-3 data-[state=active]:shadow-none">
+                <span className="px-2 text-border">/</span>
+                <TabsTrigger
+                  value="preview"
+                  className="px-0 text-[13px] data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=inactive]:text-muted-foreground"
+                >
                   预览
                 </TabsTrigger>
               </TabsList>
@@ -326,8 +368,9 @@ export function PostEditor({ post }: PostEditorProps) {
                 onChange={(e) => handleFilesChosen(e.target.files)}
               />
               <Button
-                variant="outline"
+                variant="ghost"
                 size="xs"
+                className="text-muted-foreground"
                 disabled={uploadMutation.isPending}
                 onClick={() => fileInputRef.current?.click()}
               >
@@ -339,10 +382,11 @@ export function PostEditor({ post }: PostEditorProps) {
                 上传图片 / 附件
               </Button>
             </div>
+
             <TabsContent value="write" className="mt-0">
               <Textarea
                 ref={textareaRef}
-                className="min-h-[26rem] rounded-none border-0 font-mono text-sm shadow-none focus-visible:ring-0"
+                className="min-h-[30rem] resize-none rounded-none border-0 bg-transparent px-0 py-5 font-mono text-[15px] leading-8 shadow-none focus-visible:ring-0"
                 value={state.content}
                 onChange={(e) => patch({ content: e.target.value })}
                 placeholder={'用 Markdown 写作……\n\n## 标题\n\n正文支持 **加粗**、列表、代码块与图片。'}
@@ -352,176 +396,147 @@ export function PostEditor({ post }: PostEditorProps) {
             <TabsContent value="preview" className="mt-0">
               {state.content.trim() ? (
                 <div
-                  className="prose prose-zinc dark:prose-invert max-w-none px-6 py-5"
+                  className="prose prose-zinc dark:prose-invert max-w-none py-5"
                   dangerouslySetInnerHTML={{ __html: previewHtml }}
                 />
               ) : (
                 <p className="py-24 text-center text-sm text-muted-foreground">暂无内容可预览</p>
               )}
             </TabsContent>
+
+            <div className="flex items-center justify-between border-t py-3 text-xs text-muted-foreground">
+              <span>
+                {words} 字 · 约 {readingMinutes(state.content)} 分钟
+              </span>
+              <span className="hidden sm:inline">⌘S 快速保存</span>
+            </div>
           </Tabs>
-          <div className="flex items-center justify-between border-t px-4 py-2 text-xs text-muted-foreground">
-            <span>
-              {words} 字 · 约 {readingMinutes(state.content)} 分钟
-            </span>
-            <span className="hidden sm:inline">⌘S 快速保存</span>
-          </div>
-        </Card>
-
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">发布状态</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2">
-                {savedPost?.publishedAt ? (
-                  <Badge className="bg-primary/10 text-primary">已发布</Badge>
-                ) : savedPost ? (
-                  <Badge variant="secondary">草稿</Badge>
-                ) : (
-                  <Badge variant="secondary">未保存</Badge>
-                )}
-                {isDirty ? (
-                  <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
-                    <span className="size-1.5 rounded-full bg-current" />
-                    有未保存的修改
-                  </span>
-                ) : savedPost ? (
-                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                    <Check className="size-3" />
-                    已是最新
-                  </span>
-                ) : null}
-              </div>
-              <Button className="w-full" disabled={!canSave} onClick={save}>
-                {saveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                {savedPost ? '保存修改' : '保存为草稿'}
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">元信息</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">标题</Label>
-                <Input
-                  id="title"
-                  value={state.title}
-                  onChange={(e) =>
-                    patch({
-                      title: e.target.value,
-                      slug: state.slugTouched ? state.slug : slugify(e.target.value),
-                    })
-                  }
-                  placeholder="文章标题"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="slug" className="flex items-center justify-between">
-                  Slug
-                  <span className="text-xs font-normal text-muted-foreground">/posts/&lt;slug&gt;</span>
-                </Label>
-                <Input
-                  id="slug"
-                  value={state.slug}
-                  onChange={(e) => patch({ slug: slugify(e.target.value), slugTouched: true })}
-                  placeholder="自动按标题生成"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>分类</Label>
-                <Select
-                  value={state.categoryId}
-                  onValueChange={(value) => patch({ categoryId: value })}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="选择分类" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(categories.data ?? []).map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>标签</Label>
-                <div className="flex flex-wrap gap-1.5">
-                  {(tags.data ?? []).map((tag) => {
-                    const active = state.tagIds.includes(tag.id)
-                    return (
-                      <button
-                        key={tag.id}
-                        type="button"
-                        disabled={busy}
-                        onClick={() =>
-                          patch({
-                            tagIds: active
-                              ? state.tagIds.filter((id) => id !== tag.id)
-                              : [...state.tagIds, tag.id],
-                          })
-                        }
-                      >
-                        <Badge
-                          variant={active ? 'default' : 'outline'}
-                          className="font-normal transition-colors hover:bg-accent"
-                        >
-                          #{tag.name}
-                        </Badge>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>附件</Label>
-                {(attachments.data ?? []).length > 0 || state.attachmentIds.length > 0 ? (
-                  <ul className="space-y-1.5">
-                    {state.attachmentIds.map((id) => {
-                      const ref = (attachments.data ?? []).find((f) => f.id === id)
-                      return (
-                        <li
-                          key={id}
-                          className="flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-xs"
-                        >
-                          <span className="flex min-w-0 items-center gap-1.5">
-                            {ref?.isImage ? (
-                              <img src={ref.previewUrl} alt="" className="h-6 w-6 rounded object-cover" />
-                            ) : (
-                              <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />
-                            )}
-                            <span className="truncate">{ref?.name ?? id}</span>
-                            {ref ? <span className="shrink-0 text-muted-foreground">{formatBytes(ref.size)}</span> : null}
-                          </span>
-                          <button
-                            type="button"
-                            aria-label="移除附件"
-                            className="shrink-0 text-muted-foreground hover:text-destructive"
-                            onClick={() =>
-                              patch({ attachmentIds: state.attachmentIds.filter((x) => x !== id) })
-                            }
-                          >
-                            <X className="size-3.5" />
-                          </button>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                ) : (
-                  <p className="text-xs leading-5 text-muted-foreground">
-                    图片会以内联形式插入正文；其他文件保存后出现在文章附件区。
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
         </div>
+
+        {/* 设置栏（发丝线分区，无卡片框） */}
+        <aside className="space-y-7 lg:sticky lg:top-24 lg:self-start">
+          <section className="space-y-3">
+            <h2 className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">发布状态</h2>
+            <div className="flex items-center gap-2 text-sm">
+              <span className={cn('size-2 rounded-full', published ? 'bg-brand' : 'bg-muted-foreground/40')} />
+              <span className="font-medium">{published ? '已发布' : savedPost ? '草稿' : '未保存'}</span>
+              {isDirty ? (
+                <span className="text-xs text-amber-600 dark:text-amber-400">· 有未保存的修改</span>
+              ) : savedPost ? (
+                <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+                  <Check className="size-3" />
+                  已是最新
+                </span>
+              ) : null}
+            </div>
+            <Button className="w-full" disabled={!canSave} onClick={save}>
+              {saveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+              {savedPost ? '保存修改' : '保存为草稿'}
+            </Button>
+          </section>
+
+          <section className="space-y-2 border-t pt-6">
+            <Label htmlFor="slug" className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              Slug
+            </Label>
+            <Input
+              id="slug"
+              value={state.slug}
+              onChange={(e) => patch({ slug: slugify(e.target.value), slugTouched: true })}
+              placeholder="自动按标题生成"
+            />
+            <p className="text-xs text-muted-foreground">/posts/&lt;slug&gt;</p>
+          </section>
+
+          <section className="space-y-2 border-t pt-6">
+            <Label className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">分类</Label>
+            <Select value={state.categoryId} onValueChange={(value) => patch({ categoryId: value })}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="选择分类" />
+              </SelectTrigger>
+              <SelectContent>
+                {(categories.data ?? []).map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </section>
+
+          <section className="space-y-2 border-t pt-6">
+            <Label className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">标签</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {(tags.data ?? []).map((tag) => {
+                const active = state.tagIds.includes(tag.id)
+                return (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      patch({
+                        tagIds: active
+                          ? state.tagIds.filter((id) => id !== tag.id)
+                          : [...state.tagIds, tag.id],
+                      })
+                    }
+                  >
+                    <span
+                      className={cn(
+                        'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs transition-colors',
+                        active
+                          ? 'border-transparent bg-primary font-medium text-primary-foreground'
+                          : 'text-muted-foreground hover:border-foreground/30 hover:text-foreground',
+                      )}
+                    >
+                      #{tag.name}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+
+          <section className="space-y-2 border-t pt-6">
+            <Label className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">附件</Label>
+            {(attachments.data ?? []).length > 0 || state.attachmentIds.length > 0 ? (
+              <ul className="space-y-1.5">
+                {state.attachmentIds.map((id) => {
+                  const ref = (attachments.data ?? []).find((f) => f.id === id)
+                  return (
+                    <li
+                      key={id}
+                      className="flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-xs"
+                    >
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        {ref?.isImage ? (
+                          <img src={ref.previewUrl} alt="" className="h-6 w-6 rounded object-cover" />
+                        ) : (
+                          <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />
+                        )}
+                        <span className="truncate">{ref?.name ?? id}</span>
+                        {ref ? <span className="shrink-0 text-muted-foreground">{formatBytes(ref.size)}</span> : null}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="移除附件"
+                        className="shrink-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => patch({ attachmentIds: state.attachmentIds.filter((x) => x !== id) })}
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            ) : (
+              <p className="text-xs leading-5 text-muted-foreground">
+                图片会以内联形式插入正文；其他文件保存后出现在文章附件区。
+              </p>
+            )}
+          </section>
+        </aside>
       </div>
 
       {/* 删除确认 */}

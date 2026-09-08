@@ -61,10 +61,10 @@ function SearchPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
-      <header className="space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Search</p>
-        <h1 className="text-3xl font-extrabold tracking-tight">搜索</h1>
+    <div className="mx-auto w-full max-w-[44rem] space-y-8">
+      <header className="pb-2 pt-4 text-center">
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand">Search</p>
+        <h1 className="mt-3 text-4xl font-extrabold tracking-tight">搜索</h1>
       </header>
 
       <form
@@ -75,15 +75,15 @@ function SearchPage() {
         }}
         role="search"
       >
-        <Search className="absolute left-3.5 top-1/2 size-4.5 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <input
           ref={inputRef}
           value={term}
           onChange={(e) => setTerm(e.target.value)}
           placeholder="按标题或正文搜索…"
-          className="h-12 w-full rounded-xl border bg-background pl-11 pr-24 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/50 focus:ring-4 focus:ring-primary/10"
+          className="h-12 w-full rounded-full border bg-muted/40 pl-11 pr-24 text-sm outline-none transition-[color,box-shadow,background-color] placeholder:text-muted-foreground focus:border-foreground/25 focus:bg-background"
         />
-        <Button type="submit" size="sm" className="absolute right-2 top-1/2 -translate-y-1/2">
+        <Button type="submit" size="sm" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full">
           搜索
         </Button>
       </form>

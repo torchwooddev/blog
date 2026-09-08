@@ -7,29 +7,33 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ------------------------------------------------------------------ */
-/* 设计令牌（唯一事实来源）：中性专业色板 —— 冷灰基调 + 靛蓝主色。      */
+/* 设计令牌（唯一事实来源）：出版级黑白墨色 + 单一品牌绿（参考 Ghost）。 */
 /* ------------------------------------------------------------------ */
 
 :root {
   --background: oklch(1 0 0);
-  --foreground: oklch(0.215 0.012 274);
+  --foreground: oklch(0.185 0.008 260);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.215 0.012 274);
+  --card-foreground: oklch(0.185 0.008 260);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.215 0.012 274);
-  --primary: oklch(0.52 0.21 275);
-  --primary-foreground: oklch(0.985 0.005 275);
-  --secondary: oklch(0.962 0.005 270);
-  --secondary-foreground: oklch(0.28 0.014 274);
-  --muted: oklch(0.966 0.004 270);
-  --muted-foreground: oklch(0.545 0.014 272);
-  --accent: oklch(0.953 0.008 272);
-  --accent-foreground: oklch(0.28 0.014 274);
+  --popover-foreground: oklch(0.185 0.008 260);
+  /* 主按钮 = 墨黑（Ghost 风格） */
+  --primary: oklch(0.205 0.008 260);
+  --primary-foreground: oklch(0.985 0.002 260);
+  --secondary: oklch(0.963 0.002 260);
+  --secondary-foreground: oklch(0.24 0.008 260);
+  --muted: oklch(0.968 0.002 260);
+  --muted-foreground: oklch(0.525 0.01 260);
+  --accent: oklch(0.958 0.002 260);
+  --accent-foreground: oklch(0.24 0.008 260);
   --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0.005 275);
-  --border: oklch(0.923 0.005 270);
-  --input: oklch(0.913 0.005 270);
-  --ring: oklch(0.62 0.17 275);
+  --destructive-foreground: oklch(0.985 0.002 260);
+  --border: oklch(0.928 0.002 260);
+  --input: oklch(0.905 0.002 260);
+  --ring: oklch(0.55 0.02 260);
+  /* 品牌绿：链接 / 高亮 / 状态（克制使用） */
+  --brand: oklch(0.585 0.13 162);
+  --brand-foreground: oklch(0.985 0.002 260);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -37,48 +41,51 @@
   --chart-5: oklch(0.769 0.188 70.08);
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.215 0.012 274);
-  --sidebar-primary: oklch(0.52 0.21 275);
-  --sidebar-primary-foreground: oklch(0.985 0.005 275);
-  --sidebar-accent: oklch(0.962 0.005 270);
-  --sidebar-accent-foreground: oklch(0.28 0.014 274);
-  --sidebar-border: oklch(0.923 0.005 270);
-  --sidebar-ring: oklch(0.62 0.17 275);
+  --sidebar-foreground: oklch(0.185 0.008 260);
+  --sidebar-primary: oklch(0.205 0.008 260);
+  --sidebar-primary-foreground: oklch(0.985 0.002 260);
+  --sidebar-accent: oklch(0.963 0.002 260);
+  --sidebar-accent-foreground: oklch(0.24 0.008 260);
+  --sidebar-border: oklch(0.928 0.002 260);
+  --sidebar-ring: oklch(0.55 0.02 260);
 }
 
 .dark {
-  --background: oklch(0.155 0.009 275);
-  --foreground: oklch(0.936 0.006 270);
-  --card: oklch(0.19 0.01 275);
-  --card-foreground: oklch(0.936 0.006 270);
-  --popover: oklch(0.2 0.011 275);
-  --popover-foreground: oklch(0.936 0.006 270);
-  --primary: oklch(0.7 0.155 276);
-  --primary-foreground: oklch(0.17 0.05 277);
-  --secondary: oklch(0.248 0.011 275);
-  --secondary-foreground: oklch(0.93 0.007 272);
-  --muted: oklch(0.248 0.011 275);
-  --muted-foreground: oklch(0.712 0.014 272);
-  --accent: oklch(0.268 0.013 275);
-  --accent-foreground: oklch(0.93 0.007 272);
+  --background: oklch(0.165 0.005 260);
+  --foreground: oklch(0.945 0.002 260);
+  --card: oklch(0.198 0.006 260);
+  --card-foreground: oklch(0.945 0.002 260);
+  --popover: oklch(0.208 0.006 260);
+  --popover-foreground: oklch(0.945 0.002 260);
+  /* 暗色下主按钮反白 */
+  --primary: oklch(0.95 0.002 260);
+  --primary-foreground: oklch(0.19 0.008 260);
+  --secondary: oklch(0.252 0.006 260);
+  --secondary-foreground: oklch(0.94 0.002 260);
+  --muted: oklch(0.252 0.006 260);
+  --muted-foreground: oklch(0.7 0.008 260);
+  --accent: oklch(0.268 0.007 260);
+  --accent-foreground: oklch(0.94 0.002 260);
   --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0.005 275);
-  --border: oklch(0.273 0.011 275);
-  --input: oklch(0.295 0.012 275);
-  --ring: oklch(0.48 0.14 276);
+  --destructive-foreground: oklch(0.985 0.002 260);
+  --border: oklch(0.278 0.006 260);
+  --input: oklch(0.3 0.006 260);
+  --ring: oklch(0.65 0.01 260);
+  --brand: oklch(0.74 0.13 158);
+  --brand-foreground: oklch(0.18 0.02 160);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.19 0.01 275);
-  --sidebar-foreground: oklch(0.936 0.006 270);
-  --sidebar-primary: oklch(0.7 0.155 276);
-  --sidebar-primary-foreground: oklch(0.17 0.05 277);
-  --sidebar-accent: oklch(0.268 0.013 275);
-  --sidebar-accent-foreground: oklch(0.93 0.007 272);
-  --sidebar-border: oklch(0.273 0.011 275);
-  --sidebar-ring: oklch(0.48 0.14 276);
+  --sidebar: oklch(0.198 0.006 260);
+  --sidebar-foreground: oklch(0.945 0.002 260);
+  --sidebar-primary: oklch(0.95 0.002 260);
+  --sidebar-primary-foreground: oklch(0.19 0.008 260);
+  --sidebar-accent: oklch(0.268 0.007 260);
+  --sidebar-accent-foreground: oklch(0.94 0.002 260);
+  --sidebar-border: oklch(0.278 0.006 260);
+  --sidebar-ring: oklch(0.65 0.01 260);
 }
 
 @theme inline {
@@ -103,6 +110,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -133,12 +142,11 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: 'cv11', 'ss01';
     text-rendering: optimizeLegibility;
   }
 
   ::selection {
-    background-color: color-mix(in oklab, var(--primary) 22%, transparent);
+    background-color: color-mix(in oklab, var(--brand) 24%, transparent);
   }
 
   /* 锚点定位时给标题留出 sticky 头部的高度 */
@@ -148,15 +156,30 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* 正文排版（typography 插件精修）：                                   */
-/* 与平台一致的阅读体验 —— 紧凑标题、清晰的行内码与代码块、安静的引用。 */
+/* 文字链接：悬停时下划线从左向右展开（Ghost 式微交互）。               */
+/* ------------------------------------------------------------------ */
+
+.link-underline {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 0% 1px;
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  transition: background-size 280ms ease;
+}
+
+.link-underline:hover {
+  background-size: 100% 1px;
+}
+
+/* ------------------------------------------------------------------ */
+/* 正文排版（typography 插件精修）：17px 正文、紧凑标题、安静引用。     */
 /* ------------------------------------------------------------------ */
 
 .prose {
-  --tw-prose-links: var(--primary);
-  --tw-prose-quote-borders: color-mix(in oklab, var(--primary) 35%, transparent);
+  --tw-prose-links: var(--brand);
+  --tw-prose-quote-borders: color-mix(in oklab, var(--brand) 40%, transparent);
 
-  /* 中文正文行高与字距 */
+  font-size: 1.0625rem;
   line-height: 1.85;
 }
 
@@ -164,8 +187,8 @@
 .prose h2,
 .prose h3,
 .prose h4 {
-  font-weight: 700;
-  letter-spacing: -0.015em;
+  font-weight: 750;
+  letter-spacing: -0.02em;
   scroll-margin-top: 5.5rem;
 }
 
@@ -185,21 +208,21 @@
   background-color: var(--muted);
   padding: 0.15em 0.4em;
   font-weight: 500;
-  font-size: 0.875em;
+  font-size: 0.85em;
 }
 
 .prose :where(pre):not(:where([class~='not-prose'] *)) {
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background-color: oklch(0.205 0.012 275);
-  color: oklch(0.93 0.006 270);
-  font-size: 0.875em;
+  border-radius: calc(var(--radius) + 2px);
+  background-color: oklch(0.205 0.008 260);
+  color: oklch(0.93 0.004 260);
+  font-size: 0.85rem;
   line-height: 1.75;
   box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.06);
 }
 
 .dark .prose :where(pre):not(:where([class~='not-prose'] *)) {
-  background-color: oklch(0.17 0.011 275);
+  background-color: oklch(0.175 0.007 260);
 }
 
 .prose :where(pre code):not(:where([class~='not-prose'] *)) {
@@ -214,12 +237,12 @@
   font-weight: 400;
   color: var(--muted-foreground);
   border-inline-start-width: 3px;
-  padding-inline-start: 1rem;
+  padding-inline-start: 1.25rem;
 }
 
 .prose :where(img):not(:where([class~='not-prose'] *)) {
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: calc(var(--radius) + 2px);
 }
 
 .prose :where(table):not(:where([class~='not-prose'] *)) {
@@ -239,7 +262,7 @@
 }
 
 .prose :where(hr):not(:where([class~='not-prose'] *)) {
-  margin-block: 2.5rem;
+  margin-block: 2.75rem;
   border-color: var(--border);
 }
 
@@ -254,7 +277,7 @@
 }
 
 .heading-anchor:hover {
-  color: var(--primary);
+  color: var(--brand);
 }
 
 .prose :where(h1, h2, h3, h4):hover .heading-anchor {

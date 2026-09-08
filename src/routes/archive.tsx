@@ -57,11 +57,11 @@ function ArchivePage() {
   }, [archive.data, categories.data])
 
   return (
-    <div className="mx-auto max-w-3xl space-y-10">
-      <header className="space-y-1 border-b pb-6">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Archive</p>
-        <h1 className="text-3xl font-extrabold tracking-tight">归档</h1>
-        <p className="text-sm text-muted-foreground">
+    <div className="mx-auto w-full max-w-[44rem] space-y-10">
+      <header className="pb-2 pt-4 text-center">
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand">Archive</p>
+        <h1 className="mt-3 text-4xl font-extrabold tracking-tight">归档</h1>
+        <p className="mt-3 text-sm text-muted-foreground">
           共 {archive.data?.length ?? 0} 篇文章，按发布时间倒序。
         </p>
       </header>
@@ -78,7 +78,7 @@ function ArchivePage() {
         <div className="space-y-12">
           {groups.map((group) => (
             <section key={group.year} className="space-y-4">
-              <h2 className="font-mono text-lg font-bold text-primary">{group.year}</h2>
+              <h2 className="border-b pb-2 font-mono text-base font-bold text-brand">{group.year}</h2>
               <ul className="space-y-3">
                 {group.items.map((item) => (
                   <li key={item.slug} className="flex items-baseline gap-4 text-sm">
@@ -88,7 +88,7 @@ function ArchivePage() {
                     <Link
                       to="/posts/$slug"
                       params={{ slug: item.slug }}
-                      className="min-w-0 flex-1 truncate font-medium transition-colors hover:text-primary"
+                      className="link-underline min-w-0 flex-1 truncate font-medium transition-colors"
                     >
                       {item.title}
                     </Link>

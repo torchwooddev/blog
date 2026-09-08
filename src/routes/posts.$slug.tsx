@@ -5,7 +5,6 @@ import { CommentsSection } from '#/components/comments'
 import { PostBody } from '#/components/post-body'
 import { PostToc } from '#/components/post-toc'
 import { ReadingProgress } from '#/components/reading-progress'
-import { Badge } from '#/components/ui/badge'
 import { Skeleton } from '#/components/ui/skeleton'
 import { publicConfig } from '#/lib/config'
 import { formatBytes, formatDate } from '#/lib/format'
@@ -85,94 +84,95 @@ function PostPage() {
   return (
     <>
       <ReadingProgress />
-      <div className="mx-auto xl:grid xl:grid-cols-[minmax(0,1fr)_230px] xl:gap-14">
-        <article className="mx-auto w-full max-w-3xl space-y-10">
-          <header className="space-y-5">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
-              {category ? (
-                <Link
-                  to="/categories/$slug"
-                  params={{ slug: category.slug }}
-                  className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
-                >
-                  {category.name}
-                </Link>
-              ) : null}
-              <span className="inline-flex items-center gap-1.5 text-xs">
-                {post.publishedAt ? (
-                  <>
-                    <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
-                    <span aria-hidden>·</span>
-                  </>
-                ) : (
-                  <>
-                    <Badge variant="secondary">草稿</Badge>
-                    <span aria-hidden>·</span>
-                  </>
-                )}
-                <Clock className="size-3" />
-                约 {minutes} 分钟
-                <span aria-hidden>·</span>
-                <MessageSquare className="size-3" />
-                {commentCount} 条评论
-              </span>
-            </div>
-
-            <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">{post.title}</h1>
-
-            {tags.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {tags.map((tag) => (
-                  <Link key={tag.id} to="/tags/$slug" params={{ slug: tag.slug }}>
-                    <Badge
-                      variant="outline"
-                      className="font-normal text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
-                    >
-                      #{tag.name}
-                    </Badge>
-                  </Link>
-                ))}
-              </div>
-            ) : null}
-          </header>
-
-          {/* 正文在服务端完成 markdown 渲染 + 消毒，客户端拿到的是安全 HTML。 */}
-          <PostBody html={html} />
-
-          <PostNeighbors slug={post.slug} />
-
-          {listed.length > 0 ? (
-            <section className="space-y-3 rounded-xl border bg-muted/30 p-5" aria-label="附件">
-              <h2 className="flex items-center gap-2 text-sm font-semibold">
-                <Paperclip className="size-4 text-muted-foreground" />
-                附件（{listed.length}）
-              </h2>
-              <ul className="space-y-2">
-                {listed.map((file) => (
-                  <li key={file.id}>
-                    <a
-                      href={file.downloadUrl}
-                      className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2 text-sm transition-colors hover:bg-accent"
-                    >
-                      {file.isImage ? (
-                        <img src={file.previewUrl} alt={file.name} className="h-10 w-14 rounded object-cover" />
-                      ) : (
-                        <Paperclip className="size-4 text-muted-foreground" />
-                      )}
-                      <span className="min-w-0 flex-1 truncate">{file.name}</span>
-                      <span className="shrink-0 text-xs text-muted-foreground">{formatBytes(file.size)}</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </section>
+      <div className="relative mx-auto w-full max-w-[44rem]">
+        {/* 居中文章头 */}
+        <header className="pb-12 pt-2 text-center">
+          {category ? (
+            <Link
+              to="/categories/$slug"
+              params={{ slug: category.slug }}
+              className="text-xs font-bold uppercase tracking-[0.14em] text-brand transition-opacity hover:opacity-70"
+            >
+              {category.name}
+            </Link>
           ) : null}
+          <h1 className="mt-4 text-[2rem] font-extrabold leading-[1.2] tracking-tight sm:text-[2.5rem]">
+            {post.title}
+          </h1>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-[13px] text-muted-foreground">
+            {post.publishedAt ? (
+              <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
+            ) : (
+              <span className="rounded-full border px-2 py-0.5 text-xs">草稿</span>
+            )}
+            <span aria-hidden>·</span>
+            <span className="inline-flex items-center gap-1">
+              <Clock className="size-3" />
+              {minutes} 分钟
+            </span>
+            <span aria-hidden>·</span>
+            <span className="inline-flex items-center gap-1">
+              <MessageSquare className="size-3" />
+              {commentCount} 条评论
+            </span>
+          </div>
+          {tags.length > 0 ? (
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[13px] text-muted-foreground">
+              {tags.map((tag) => (
+                <Link
+                  key={tag.id}
+                  to="/tags/$slug"
+                  params={{ slug: tag.slug }}
+                  className="link-underline transition-colors hover:text-foreground"
+                >
+                  #{tag.name}
+                </Link>
+              ))}
+            </div>
+          ) : null}
+        </header>
 
+        {/* 正文在服务端完成 markdown 渲染 + 消毒，客户端拿到的是安全 HTML。 */}
+        <PostBody html={html} />
+
+        <PostNeighbors slug={post.slug} />
+
+        {listed.length > 0 ? (
+          <section className="mt-12 space-y-3 rounded-xl border bg-muted/30 p-5" aria-label="附件">
+            <h2 className="flex items-center gap-2 text-sm font-semibold">
+              <Paperclip className="size-4 text-muted-foreground" />
+              附件（{listed.length}）
+            </h2>
+            <ul className="space-y-2">
+              {listed.map((file) => (
+                <li key={file.id}>
+                  <a
+                    href={file.downloadUrl}
+                    className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2 text-sm transition-colors hover:bg-accent"
+                  >
+                    {file.isImage ? (
+                      <img src={file.previewUrl} alt={file.name} className="h-10 w-14 rounded object-cover" />
+                    ) : (
+                      <Paperclip className="size-4 text-muted-foreground" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate">{file.name}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{formatBytes(file.size)}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        <div className="mt-14">
           <CommentsSection postId={post.id} />
-        </article>
+        </div>
 
-        <aside className="hidden xl:block">
-          <PostToc items={extractToc(post.content)} />
+        {/* 目录挂栏：挂在居中文章列右侧的留白里，随滚动吸附（xl 起显示） */}
+        <aside className="absolute bottom-0 left-full top-24 hidden w-52 xl:block 2xl:ml-2 2xl:w-56">
+          <div className="sticky top-24">
+            <PostToc items={extractToc(post.content)} />
+          </div>
         </aside>
       </div>
     </>
@@ -185,7 +185,7 @@ function PostNeighbors({ slug }: { slug: string }) {
 
   if (neighbors.isLoading) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="mt-12 grid gap-3 border-t pt-10 sm:grid-cols-2">
         <Skeleton className="h-20 rounded-xl" />
         <Skeleton className="h-20 rounded-xl" />
       </div>
@@ -196,18 +196,18 @@ function PostNeighbors({ slug }: { slug: string }) {
   if (!older && !newer) return null
 
   return (
-    <nav className="grid gap-3 border-t pt-8 sm:grid-cols-2" aria-label="相邻文章">
+    <nav className="mt-12 grid gap-3 border-t pt-10 sm:grid-cols-2" aria-label="相邻文章">
       {older ? (
         <Link
           to="/posts/$slug"
           params={{ slug: older.slug }}
-          className="group rounded-xl border p-4 transition-colors hover:border-primary/40 hover:bg-accent/50"
+          className="group rounded-xl border p-4 transition-colors hover:border-foreground/25"
         >
           <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
             <ArrowLeft className="size-3" />
             上一篇
           </span>
-          <span className="line-clamp-1 text-sm font-medium transition-colors group-hover:text-primary">
+          <span className="line-clamp-1 text-sm font-semibold transition-colors group-hover:text-brand">
             {older.title}
           </span>
         </Link>
@@ -218,13 +218,13 @@ function PostNeighbors({ slug }: { slug: string }) {
         <Link
           to="/posts/$slug"
           params={{ slug: newer.slug }}
-          className="group rounded-xl border p-4 text-right transition-colors hover:border-primary/40 hover:bg-accent/50 sm:col-start-2"
+          className="group rounded-xl border p-4 text-right transition-colors hover:border-foreground/25 sm:col-start-2"
         >
           <span className="mb-1 flex items-center justify-end gap-1 text-xs text-muted-foreground">
             下一篇
             <ArrowRight className="size-3" />
           </span>
-          <span className="line-clamp-1 text-sm font-medium transition-colors group-hover:text-primary">
+          <span className="line-clamp-1 text-sm font-semibold transition-colors group-hover:text-brand">
             {newer.title}
           </span>
         </Link>

@@ -50,7 +50,7 @@ function AppShell() {
         <Outlet />
       </main>
       <SiteFooter />
-      <Toaster position="top-center" richColors />
+      <Toaster position="top-center" />
     </div>
   )
 }

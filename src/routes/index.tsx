@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { Rss } from 'lucide-react'
-import { DataLoaderError, PostList, TaxonomySidebar } from '#/components/post-list'
+import { DataLoaderError, PostList } from '#/components/post-list'
 import { publicConfig } from '#/lib/config'
 import { categoriesOptions, publishedPostsOptions, tagsOptions } from '#/lib/query-options'
 
@@ -52,37 +52,54 @@ export const Route = createFileRoute('/')({
 function HomePage() {
   const { cursor } = Route.useSearch()
   const page = useQuery({ ...publishedPostsOptions(cursor), placeholderData: keepPreviousData })
+  const categories = useQuery(categoriesOptions())
 
   return (
-    <div className="space-y-12">
-      <section className="space-y-3">
-        <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">{publicConfig.siteName}</h1>
-        <p className="max-w-2xl text-[15px] leading-7 text-muted-foreground">
+    <div className="mx-auto w-full max-w-[44rem]">
+      {/* 站点开篇（Ghost 式居中开篇） */}
+      <section className="pb-14 pt-6 text-center sm:pt-10">
+        <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">{publicConfig.siteName}</h1>
+        <p className="mx-auto mt-4 max-w-md text-[17px] leading-8 text-muted-foreground">
           {publicConfig.siteDescription}
         </p>
-        <a
-          href="/feed.xml"
-          className="inline-flex items-center gap-1.5 text-sm text-primary transition-colors hover:underline"
-        >
-          <Rss className="size-3.5" />
-          通过 RSS 订阅更新
-        </a>
+        {(categories.data ?? []).length > 0 ? (
+          <nav
+            className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-sm"
+            aria-label="分类"
+          >
+            {(categories.data ?? []).map((c) => (
+              <Link
+                key={c.id}
+                to="/categories/$slug"
+                params={{ slug: c.slug }}
+                className="link-underline font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {c.name}
+              </Link>
+            ))}
+            <a
+              href="/feed.xml"
+              className="inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
+              aria-label="RSS 订阅"
+            >
+              <Rss className="size-3.5" />
+              RSS
+            </a>
+          </nav>
+        ) : null}
       </section>
 
-      <div className="grid gap-12 lg:grid-cols-[1fr_220px]">
-        <section className="space-y-6" aria-label="文章列表">
-          {page.isError ? (
-            <DataLoaderError error={page.error} />
-          ) : (
-            <PostList
-              page={page.data}
-              cursor={cursor}
-              buildPageHref={(c) => ({ to: '/', search: { cursor: c } })}
-            />
-          )}
-        </section>
-        <TaxonomySidebar />
-      </div>
+      <section aria-label="文章列表">
+        {page.isError ? (
+          <DataLoaderError error={page.error} />
+        ) : (
+          <PostList
+            page={page.data}
+            cursor={cursor}
+            buildPageHref={(c) => ({ to: '/', search: { cursor: c } })}
+          />
+        )}
+      </section>
     </div>
   )
 }

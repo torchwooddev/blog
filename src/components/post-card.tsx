@@ -1,14 +1,13 @@
 import { Link } from '@tanstack/react-router'
-import { Clock } from 'lucide-react'
-import { Badge } from '#/components/ui/badge'
 import { formatDate } from '#/lib/format'
 import { readingMinutes } from '#/lib/post-utils'
 import { excerpt } from '#/lib/types'
 import type { Category, Post, Tag } from '#/lib/types'
+import { cn } from 'cn'
 
 /**
- * 文章列表条目（编辑风格：标题驱动、分隔线分栏，不用卡片框）。
- * featured = 列表头条：更大的标题与更长的摘要。
+ * 文章列表条目（Ghost 编辑风）：居中单栏里的纯排版条目——
+ * 无卡片框、发丝分隔线、标题悬停下划线动画。
  */
 export function PostCard({
   post,
@@ -23,56 +22,63 @@ export function PostCard({
 }) {
   const minutes = readingMinutes(post.content)
   return (
-    <article className="group space-y-2.5">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+    <article className="group">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
         {post.publishedAt ? (
           <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
         ) : (
-          <Badge variant="secondary">草稿</Badge>
+          <span className="rounded-full border px-2 py-0.5 text-xs">草稿</span>
         )}
         {category ? (
           <>
-            <span aria-hidden>/</span>
+            <span aria-hidden>·</span>
             <Link
               to="/categories/$slug"
               params={{ slug: category.slug }}
-              className="font-medium text-primary transition-colors hover:underline"
+              className="link-underline font-medium text-foreground/70 transition-colors hover:text-foreground"
             >
               {category.name}
             </Link>
           </>
         ) : null}
-        <span aria-hidden>/</span>
-        <span className="inline-flex items-center gap-1">
-          <Clock className="size-3" />
-          {minutes} 分钟
-        </span>
+        <span aria-hidden>·</span>
+        <span>{minutes} 分钟</span>
       </div>
 
-      <h2 className={featured ? 'text-2xl font-bold tracking-tight sm:text-[1.7rem]' : 'text-xl font-bold tracking-tight'}>
+      <h2
+        className={cn(
+          'mt-2 font-bold tracking-tight',
+          featured ? 'text-[1.75rem] leading-tight sm:text-[1.9rem]' : 'text-[1.35rem] leading-snug',
+        )}
+      >
         <Link
           to="/posts/$slug"
           params={{ slug: post.slug }}
-          className="transition-colors group-hover:text-primary"
+          className="link-underline transition-colors"
         >
           {post.title}
         </Link>
       </h2>
 
-      <p className={`leading-relaxed text-muted-foreground ${featured ? 'line-clamp-3 text-[15px]' : 'line-clamp-2 text-sm'}`}>
-        {excerpt(post.content, featured ? 180 : 120)}
+      <p
+        className={cn(
+          'mt-2 leading-relaxed text-muted-foreground',
+          featured ? 'line-clamp-3 text-[15.5px]' : 'line-clamp-2 text-[15px]',
+        )}
+      >
+        {excerpt(post.content, featured ? 170 : 110)}
       </p>
 
       {tags && tags.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5 pt-0.5">
+        <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[13px] text-muted-foreground">
           {tags.map((tag) => (
-            <Link key={tag.id} to="/tags/$slug" params={{ slug: tag.slug }}>
-              <Badge
-                variant="outline"
-                className="font-normal text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
-              >
-                #{tag.name}
-              </Badge>
+            <Link
+              key={tag.id}
+              to="/tags/$slug"
+              params={{ slug: tag.slug }}
+              className="link-underline transition-colors hover:text-foreground"
+            >
+              #{tag.name}
             </Link>
           ))}
         </div>

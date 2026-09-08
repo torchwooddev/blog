@@ -1,6 +1,4 @@
 import { Link } from '@tanstack/react-router'
-import { Rss } from 'lucide-react'
-import { LogoMark } from '#/components/logo'
 import { publicConfig } from '#/lib/config'
 
 const FOOTER_NAV = [
@@ -10,51 +8,39 @@ const FOOTER_NAV = [
   { to: '/about', label: '关于' },
 ] as const
 
+/** 极简居中页脚：字标 + 简介 + 导航一行 + 订阅/版权。 */
 export function SiteFooter() {
   const year = new Date().getFullYear()
   return (
-    <footer className="border-t bg-muted/30">
-      <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
-        <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
-          <div className="max-w-sm space-y-3">
-            <Link to="/" className="flex items-center gap-2.5">
-              <LogoMark className="size-6 rounded-[6px]" />
-              <span className="text-[15px] font-bold tracking-tight">{publicConfig.siteName}</span>
-            </Link>
-            <p className="text-sm leading-6 text-muted-foreground">{publicConfig.siteDescription}</p>
-          </div>
+    <footer className="border-t">
+      <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-5 px-4 py-14 text-center sm:px-6">
+        <Link
+          to="/"
+          className="text-[15px] font-bold tracking-tight transition-opacity hover:opacity-70"
+        >
+          {publicConfig.siteName}
+        </Link>
+        <p className="max-w-md text-sm leading-6 text-muted-foreground">{publicConfig.siteDescription}</p>
 
-          <nav className="grid grid-cols-2 gap-x-12 gap-y-2 text-sm" aria-label="页脚导航">
-            <span className="col-span-2 mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              导航
-            </span>
-            {FOOTER_NAV.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                className="text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-
-          <div className="grid grid-cols-1 gap-y-2 text-sm">
-            <span className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">订阅</span>
-            <a
-              href="/feed.xml"
-              className="inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
+        <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm" aria-label="页脚导航">
+          {FOOTER_NAV.map((item) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              className="link-underline text-muted-foreground transition-colors hover:text-foreground"
             >
-              <Rss className="size-3.5" />
-              RSS 订阅
-            </a>
-            <a href="/sitemap.xml" className="text-muted-foreground transition-colors hover:text-foreground">
-              站点地图
-            </a>
-          </div>
-        </div>
+              {item.label}
+            </Link>
+          ))}
+          <a
+            href="/feed.xml"
+            className="link-underline text-muted-foreground transition-colors hover:text-foreground"
+          >
+            RSS
+          </a>
+        </nav>
 
-        <div className="mt-8 flex flex-col gap-1 border-t pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-2 flex flex-col items-center gap-1 text-xs text-muted-foreground">
           <p>
             © {year} {publicConfig.siteName} · 保留所有权利
           </p>

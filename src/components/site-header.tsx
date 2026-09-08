@@ -1,9 +1,8 @@
 import { useMutation } from '@tanstack/react-query'
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
-import { LogOut, Menu, PenSquare, Search } from 'lucide-react'
+import { LogOut, PenSquare, Search } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { LogoMark } from '#/components/logo'
 import { SearchDialog } from '#/components/search-dialog'
 import { ThemeToggle } from '#/components/theme-toggle'
 import { Avatar, AvatarFallback } from '#/components/ui/avatar'
@@ -21,6 +20,7 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { describeError } from '#/lib/errors'
 import { publicConfig } from '#/lib/config'
 import { logout, useAuth } from '#/lib/torchwood-client'
+import { cn } from 'cn'
 
 const NAV_LINKS = [
   { to: '/', label: '首页', exact: true },
@@ -51,24 +51,28 @@ export function SiteHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-8">
-            <Link to="/" className="flex min-w-0 items-center gap-2.5" aria-label={publicConfig.siteName}>
-              <LogoMark className="size-7 shrink-0 rounded-[7px]" />
-              <span className="truncate text-[15px] font-bold tracking-tight">{publicConfig.siteName}</span>
+      <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur-md">
+        <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-7">
+            <Link
+              to="/"
+              className="text-[15px] font-bold tracking-tight text-foreground transition-opacity hover:opacity-70"
+              aria-label={publicConfig.siteName}
+            >
+              {publicConfig.siteName}
             </Link>
 
-            <nav className="hidden items-center gap-1 md:flex" aria-label="主导航">
+            <nav className="hidden items-center gap-5 md:flex" aria-label="主导航">
               {NAV_LINKS.map((link) => (
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+                  className={cn(
+                    'link-underline pb-0.5 text-sm transition-colors',
                     isActive(link.to, link.exact)
-                      ? 'bg-accent font-medium text-foreground'
-                      : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
-                  }`}
+                      ? 'font-semibold text-foreground'
+                      : 'font-medium text-muted-foreground hover:text-foreground',
+                  )}
                 >
                   {link.label}
                 </Link>
@@ -76,29 +80,25 @@ export function SiteHeader() {
             </nav>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="flex h-9 items-center gap-2 rounded-md border bg-muted/50 px-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               aria-label="搜索文章"
             >
               <Search className="size-4" />
-              <span className="hidden lg:inline">搜索</span>
-              <kbd className="hidden rounded border bg-background px-1.5 py-0.5 font-mono text-[10px] lg:inline">
-                ⌘K
-              </kbd>
             </button>
 
             <ThemeToggle />
 
             {auth.status === 'restoring' ? (
-              <Skeleton className="h-8 w-20 rounded-md" aria-label="加载登录状态" />
+              <Skeleton className="h-8 w-16 rounded-full" aria-label="加载登录状态" />
             ) : auth.status === 'signedIn' && auth.account ? (
               <>
-                <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+                <Button asChild size="sm" className="ml-1 rounded-full px-4">
                   <Link to="/admin">
-                    <PenSquare className="size-4" />
+                    <PenSquare className="size-3.5" />
                     写作
                   </Link>
                 </Button>
@@ -106,11 +106,13 @@ export function SiteHeader() {
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="ml-1.5 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       aria-label="账号菜单"
                     >
                       <Avatar className="size-8">
-                        <AvatarFallback className="bg-primary text-primary-foreground">{initials}</AvatarFallback>
+                        <AvatarFallback className="bg-foreground/5 text-[11px] text-foreground ring-1 ring-border">
+                          {initials}
+                        </AvatarFallback>
                       </Avatar>
                     </button>
                   </DropdownMenuTrigger>
@@ -141,25 +143,28 @@ export function SiteHeader() {
                 </DropdownMenu>
               </>
             ) : (
-              <div className="hidden items-center gap-1.5 sm:flex">
-                <Button asChild variant="ghost" size="sm">
+              <div className="hidden items-center gap-1 sm:flex">
+                <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
                   <Link to="/login">登录</Link>
                 </Button>
-                <Button asChild size="sm">
+                <Button asChild size="sm" className="ml-1 rounded-full px-4">
                   <Link to="/register">注册</Link>
                 </Button>
               </div>
             )}
 
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              aria-label="打开菜单"
+            <button
+              type="button"
               onClick={() => setMobileOpen(true)}
+              className="ml-1 flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:hidden"
+              aria-label="打开菜单"
             >
-              <Menu className="size-5" />
-            </Button>
+              <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <line x1="4" y1="7" x2="20" y2="7" />
+                <line x1="4" y1="12" x2="20" y2="12" />
+                <line x1="4" y1="17" x2="20" y2="17" />
+              </svg>
+            </button>
           </div>
         </div>
       </header>
@@ -168,10 +173,7 @@ export function SiteHeader() {
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="right" className="w-72">
           <SheetHeader>
-            <SheetTitle className="flex items-center gap-2.5">
-              <LogoMark className="size-6 rounded-[6px]" />
-              {publicConfig.siteName}
-            </SheetTitle>
+            <SheetTitle>{publicConfig.siteName}</SheetTitle>
           </SheetHeader>
           <nav className="flex flex-col gap-1 px-4" aria-label="移动端导航">
             {NAV_LINKS.map((link) => (
@@ -179,11 +181,12 @@ export function SiteHeader() {
                 key={link.to}
                 to={link.to}
                 onClick={() => setMobileOpen(false)}
-                className={`rounded-md px-3 py-2 text-sm transition-colors ${
+                className={cn(
+                  'rounded-md px-3 py-2 text-sm transition-colors',
                   isActive(link.to, link.exact)
-                    ? 'bg-accent font-medium text-foreground'
-                    : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
-                }`}
+                    ? 'bg-accent font-semibold text-foreground'
+                    : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+                )}
               >
                 {link.label}
               </Link>

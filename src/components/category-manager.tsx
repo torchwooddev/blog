@@ -98,9 +98,9 @@ export function CategoryManager({ onChange }: { onChange: () => void }) {
   })
 
   return (
-    <section className="space-y-4 rounded-xl border bg-card p-5">
+    <section className="space-y-4 border-t pt-8">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">分类管理</h2>
+        <h2 className="text-base font-semibold tracking-tight">分类管理</h2>
         <span className="text-xs text-muted-foreground">共 {categories.data?.length ?? 0} 个</span>
       </div>
 
@@ -142,14 +142,14 @@ export function CategoryManager({ onChange }: { onChange: () => void }) {
       </ul>
 
       <form
-        className="flex flex-wrap items-end gap-2 border-t pt-4"
+        className="flex flex-wrap items-end gap-2 border-t pt-5"
         onSubmit={(e) => {
           e.preventDefault()
           if (name.trim() && slug.trim()) createMutation.mutate()
         }}
       >
         <div className="space-y-1">
-          <Label htmlFor="cat-name" className="text-xs">
+          <Label htmlFor="cat-name" className="text-xs text-muted-foreground">
             分类名
           </Label>
           <Input
@@ -161,7 +161,7 @@ export function CategoryManager({ onChange }: { onChange: () => void }) {
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="cat-slug" className="text-xs">
+          <Label htmlFor="cat-slug" className="text-xs text-muted-foreground">
             Slug
           </Label>
           <Input
@@ -172,7 +172,7 @@ export function CategoryManager({ onChange }: { onChange: () => void }) {
             placeholder="eng"
           />
         </div>
-        <Button type="submit" size="sm" disabled={createMutation.isPending || !name.trim() || !slug.trim()}>
+        <Button type="submit" size="sm" className="rounded-full px-4" disabled={createMutation.isPending || !name.trim() || !slug.trim()}>
           <Plus className="size-4" />
           新建分类
         </Button>

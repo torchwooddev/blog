@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { createFileRoute, notFound, redirect } from '@tanstack/react-router'
-import { DataLoaderError, PostList, TaxonomySidebar } from '#/components/post-list'
+import { DataLoaderError, PostList } from '#/components/post-list'
 import { getTagBySlug } from '#/server/public-data.functions'
 import { categoriesOptions, tagsOptions, tagPostsOptions } from '#/lib/query-options'
 import { publicConfig } from '#/lib/config'
@@ -54,27 +54,24 @@ function TagPage() {
   const page = useQuery({ ...tagPostsOptions(tag.id, cursor), placeholderData: keepPreviousData })
 
   return (
-    <div className="grid gap-12 lg:grid-cols-[1fr_220px]">
-      <section className="space-y-8">
-        <header className="space-y-1 border-b pb-6">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">标签</p>
-          <h1 className="text-3xl font-extrabold tracking-tight">#{tag.name}</h1>
-        </header>
-        {page.isError ? (
-          <DataLoaderError error={page.error} />
-        ) : (
-          <PostList
-            page={page.data}
-            cursor={cursor}
-            buildPageHref={(c) => ({
-              to: '/tags/$slug',
-              params: { slug: tag.slug },
-              search: { cursor: c },
-            })}
-          />
-        )}
-      </section>
-      <TaxonomySidebar />
+    <div className="mx-auto w-full max-w-[44rem]">
+      <header className="pb-12 pt-4 text-center">
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand">标签</p>
+        <h1 className="mt-3 text-4xl font-extrabold tracking-tight">#{tag.name}</h1>
+      </header>
+      {page.isError ? (
+        <DataLoaderError error={page.error} />
+      ) : (
+        <PostList
+          page={page.data}
+          cursor={cursor}
+          buildPageHref={(c) => ({
+            to: '/tags/$slug',
+            params: { slug: tag.slug },
+            search: { cursor: c },
+          })}
+        />
+      )}
     </div>
   )
 }

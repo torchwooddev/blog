@@ -40,7 +40,7 @@ export function PostToc({ items }: { items: TocItem[] }) {
   if (items.length === 0) return null
 
   return (
-    <nav aria-label="目录" className="space-y-3 text-sm lg:sticky lg:top-24">
+    <nav aria-label="目录" className="space-y-3 text-sm">
       <h2 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         <ListTree className="size-3.5" />
         目录
@@ -58,7 +58,7 @@ export function PostToc({ items }: { items: TocItem[] }) {
                 '-ml-px block border-l-2 py-1 transition-colors',
                 item.level === 3 ? 'pl-6' : 'pl-3',
                 activeId === item.id
-                  ? 'border-primary font-medium text-primary'
+                  ? 'border-brand font-semibold text-foreground'
                   : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground',
               )}
             >

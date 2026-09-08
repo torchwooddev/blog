@@ -1,11 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, Navigate, createFileRoute } from '@tanstack/react-router'
-import { Eye, EyeOff, FileEdit, FilePlus2, FileText, Inbox, Loader2, Trash2 } from 'lucide-react'
+import { Eye, EyeOff, FileEdit, FilePlus2, Inbox, Loader2, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { CategoryManager } from '#/components/category-manager'
 import { EmptyState } from '#/components/empty-state'
-import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import {
   AlertDialog,
@@ -31,6 +30,7 @@ import { countWords, readingMinutes } from '#/lib/post-utils'
 import { cleanupCommentsForPost } from '#/server/admin.functions'
 import { deleteStorageFiles } from '#/server/storage.functions'
 import { useAuth } from '#/lib/torchwood-client'
+import { cn } from 'cn'
 import type { Post } from '#/lib/types'
 
 type StatusFilter = 'all' | 'published' | 'draft'
@@ -56,27 +56,22 @@ function AdminPage() {
 
 function AdminSkeleton() {
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <Skeleton className="h-8 w-44" />
-      <div className="grid gap-4 sm:grid-cols-3">
+    <div className="mx-auto max-w-3xl space-y-8 py-4">
+      <Skeleton className="h-9 w-36" />
+      <div className="space-y-1">
         {[0, 1, 2].map((i) => (
-          <Skeleton key={i} className="h-24 rounded-xl" />
+          <Skeleton key={i} className="h-14 w-full" />
         ))}
       </div>
-      {[0, 1, 2].map((i) => (
-        <Skeleton key={i} className="h-20 w-full rounded-xl" />
-      ))}
     </div>
   )
 }
 
-function StatCard({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
-  return (
-    <div className="rounded-xl border bg-card p-5">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="mt-1 text-3xl font-bold tracking-tight">{value}</p>
-      {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
-    </div>
+function StatusDot({ published }: { published: boolean }) {
+  return published ? (
+    <span className="size-2 shrink-0 rounded-full bg-brand" aria-label="已发布" />
+  ) : (
+    <span className="size-2 shrink-0 rounded-full bg-muted-foreground/40" aria-label="草稿" />
   )
 }
 
@@ -145,13 +140,15 @@ function AdminHome({ userId }: { userId: string }) {
   ]
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
-      <header className="flex flex-wrap items-center justify-between gap-4">
+    <div className="mx-auto max-w-3xl space-y-8">
+      <header className="flex flex-wrap items-center justify-between gap-4 pt-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">写作台</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">管理你的文章与分类。</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            共 {posts.length} 篇 · 已发布 {publishedCount} · 草稿 {draftCount}
+          </p>
         </div>
-        <Button asChild>
+        <Button asChild size="sm" className="rounded-full px-4">
           <Link to="/admin/new">
             <FilePlus2 className="size-4" />
             新建文章
@@ -159,128 +156,103 @@ function AdminHome({ userId }: { userId: string }) {
         </Button>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="文章总数" value={posts.length} />
-        <StatCard label="已发布" value={publishedCount} hint="对所有人可见" />
-        <StatCard label="草稿" value={draftCount} hint="仅自己可见" />
+      <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="按状态筛选">
+        {FILTERS.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            role="tab"
+            aria-selected={filter === f.key}
+            onClick={() => setFilter(f.key)}
+            className={cn(
+              'rounded-full border px-3.5 py-1.5 text-[13px] transition-colors',
+              filter === f.key
+                ? 'border-transparent bg-primary font-semibold text-primary-foreground'
+                : 'text-muted-foreground hover:border-foreground/30 hover:text-foreground',
+            )}
+          >
+            {f.label}
+            <span className={cn('ml-1.5 text-xs', filter === f.key ? 'opacity-70' : 'opacity-60')}>
+              {f.count}
+            </span>
+          </button>
+        ))}
       </div>
 
-      <section className="space-y-4">
-        <div className="flex items-center gap-1 rounded-lg border p-1" role="tablist" aria-label="按状态筛选">
-          {FILTERS.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              role="tab"
-              aria-selected={filter === f.key}
-              onClick={() => setFilter(f.key)}
-              className={`flex-1 rounded-md px-3 py-1.5 text-sm transition-colors sm:flex-none ${
-                filter === f.key
-                  ? 'bg-accent font-medium text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {f.label}
-              <span className="ml-1.5 text-xs text-muted-foreground">{f.count}</span>
-            </button>
+      {myPosts.isLoading ? (
+        <div className="space-y-1">
+          {[0, 1].map((i) => (
+            <Skeleton key={i} className="h-14 w-full" />
           ))}
         </div>
-
-        {myPosts.isLoading ? (
-          <div className="space-y-3">
-            {[0, 1].map((i) => (
-              <Skeleton key={i} className="h-16 w-full rounded-xl" />
-            ))}
-          </div>
-        ) : visible.length === 0 ? (
-          <EmptyState
-            icon={posts.length === 0 ? Inbox : FileText}
-            title={posts.length === 0 ? '还没有文章' : `没有${FILTERS.find((f) => f.key === filter)?.label ?? ''}的文章`}
-            description={
-              posts.length === 0
-                ? '写下第一篇吧：保存后即为草稿，发布后公开可见。'
-                : '切换筛选条件查看其他文章。'
-            }
-            action={
-              posts.length === 0 ? (
-                <Button asChild size="sm">
-                  <Link to="/admin/new">
-                    <FilePlus2 className="size-4" />
-                    新建文章
+      ) : visible.length === 0 ? (
+        <EmptyState
+          icon={posts.length === 0 ? Inbox : FileEdit}
+          title={posts.length === 0 ? '还没有文章' : `没有${FILTERS.find((f) => f.key === filter)?.label ?? ''}的文章`}
+          description={
+            posts.length === 0
+              ? '写下第一篇吧：保存后即为草稿，发布后公开可见。'
+              : '切换筛选条件查看其他文章。'
+          }
+          action={
+            posts.length === 0 ? (
+              <Button asChild size="sm" className="rounded-full">
+                <Link to="/admin/new">
+                  <FilePlus2 className="size-4" />
+                  新建文章
+                </Link>
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <ul className="divide-y">
+          {visible.map((post) => (
+            <li key={post.id} className="group flex flex-wrap items-center gap-x-4 gap-y-2 py-4">
+              <StatusDot published={!!post.publishedAt} />
+              <div className="min-w-0 flex-1">
+                <Link
+                  to="/admin/$postId"
+                  params={{ postId: post.id }}
+                  className="link-underline block truncate text-[15px] font-semibold"
+                >
+                  {post.title || '（无标题）'}
+                </Link>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {post.publishedAt ? `发布于 ${formatDate(post.publishedAt)} · ` : ''}
+                  {readingMinutes(post.content)} 分钟 · {countWords(post.content)} 字 · 更新于{' '}
+                  {formatRelative(post.updatedAt)}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title={post.publishedAt ? '撤回' : '发布'}
+                  disabled={publishMutation.isPending}
+                  onClick={() => publishMutation.mutate({ post, publish: !post.publishedAt })}
+                >
+                  {post.publishedAt ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </Button>
+                <Button asChild variant="ghost" size="icon-sm" title="编辑">
+                  <Link to="/admin/$postId" params={{ postId: post.id }}>
+                    <FileEdit className="size-4" />
                   </Link>
                 </Button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <ul className="divide-y rounded-xl border">
-            {visible.map((post) => (
-              <li key={post.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-                <div className="min-w-0 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link
-                      to="/admin/$postId"
-                      params={{ postId: post.id }}
-                      className="font-medium underline-offset-4 hover:underline"
-                    >
-                      {post.title || '（无标题）'}
-                    </Link>
-                    {post.publishedAt ? (
-                      <Badge className="bg-primary/10 text-primary">已发布</Badge>
-                    ) : (
-                      <Badge variant="secondary">草稿</Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {post.publishedAt ? (
-                      <>
-                        发布于 {formatDate(post.publishedAt)} ·{' '}
-                      </>
-                    ) : null}
-                    约 {readingMinutes(post.content)} 分钟 · {countWords(post.content)} 字 · 更新于{' '}
-                    {formatRelative(post.updatedAt)}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <Button asChild variant="ghost" size="sm">
-                    <Link to="/admin/$postId" params={{ postId: post.id }}>
-                      <FileEdit className="size-4" />
-                      编辑
-                    </Link>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={publishMutation.isPending}
-                    onClick={() => publishMutation.mutate({ post, publish: !post.publishedAt })}
-                  >
-                    {post.publishedAt ? (
-                      <>
-                        <EyeOff className="size-4" />
-                        撤回
-                      </>
-                    ) : (
-                      <>
-                        <Eye className="size-4" />
-                        发布
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => setPendingDelete(post)}
-                  >
-                    <Trash2 className="size-4" />
-                    删除
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-destructive hover:text-destructive"
+                  title="删除"
+                  onClick={() => setPendingDelete(post)}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <CategoryManager onChange={invalidate} />
 

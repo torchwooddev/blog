@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { MessageSquare } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback } from '#/components/ui/avatar'
@@ -30,22 +29,21 @@ export function CommentsSection({ postId }: { postId: string }) {
 
   const count = comments.data?.length ?? 0
   return (
-    <section className="space-y-5 border-t pt-8" aria-label="评论">
-      <h2 className="flex items-center gap-2 text-lg font-semibold">
-        <MessageSquare className="size-4.5 text-muted-foreground" />
-        评论 <span className="text-base font-normal text-muted-foreground">（{count}）</span>
+    <section className="space-y-6 border-t pt-10" aria-label="评论">
+      <h2 className="text-base font-semibold tracking-tight">
+        评论 <span className="font-normal text-muted-foreground">（{count}）</span>
       </h2>
 
       {auth.status === 'signedIn' ? (
         <CommentForm postId={postId} />
       ) : (
-        <div className="flex flex-col items-start justify-between gap-3 rounded-xl border bg-muted/30 p-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col items-start justify-between gap-3 rounded-xl border bg-muted/40 p-4 sm:flex-row sm:items-center">
           <p className="text-sm text-muted-foreground">登录后即可参与讨论。</p>
           <div className="flex items-center gap-2">
-            <Button asChild size="sm" variant="outline">
+            <Button asChild size="sm" variant="outline" className="rounded-full">
               <Link to="/login">登录</Link>
             </Button>
-            <Button asChild size="sm">
+            <Button asChild size="sm" className="rounded-full">
               <Link to="/register">注册</Link>
             </Button>
           </div>
@@ -53,25 +51,25 @@ export function CommentsSection({ postId }: { postId: string }) {
       )}
 
       {comments.isLoading ? (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {[0, 1].map((i) => (
             <div key={i} className="flex gap-3">
               <Skeleton className="size-8 rounded-full" />
               <div className="flex-1 space-y-2">
-                <Skeleton className="h-3 w-32" />
+                <Skeleton className="h-3 w-28" />
                 <Skeleton className="h-4 w-3/4" />
               </div>
             </div>
           ))}
         </div>
       ) : comments.data && comments.data.length > 0 ? (
-        <ul className="space-y-5">
+        <ul className="divide-y">
           {comments.data.map((comment) => (
-            <li key={comment.id} className="flex gap-3">
+            <li key={comment.id} className="flex gap-3 py-5 first:pt-0">
               <CommentAvatar name={comment.authorName} />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                  <span className="text-sm font-medium">{comment.authorName ?? '匿名读者'}</span>
+                  <span className="text-sm font-semibold">{comment.authorName ?? '匿名读者'}</span>
                   <time
                     className="text-xs text-muted-foreground"
                     dateTime={comment.createdAt}
@@ -80,7 +78,7 @@ export function CommentsSection({ postId }: { postId: string }) {
                     {formatRelative(comment.createdAt)}
                   </time>
                 </div>
-                <p className="mt-1 whitespace-pre-wrap text-sm leading-6">{comment.content}</p>
+                <p className="mt-1 whitespace-pre-wrap text-[15px] leading-7">{comment.content}</p>
               </div>
             </li>
           ))}
@@ -98,7 +96,9 @@ function CommentAvatar({ name }: { name: string | null }) {
   const initial = (name ?? '?').trim().slice(0, 1).toUpperCase()
   return (
     <Avatar className="size-8">
-      <AvatarFallback className="bg-primary/10 text-primary">{initial}</AvatarFallback>
+      <AvatarFallback className="bg-foreground/5 text-[11px] text-foreground ring-1 ring-border">
+        {initial}
+      </AvatarFallback>
     </Avatar>
   )
 }
@@ -149,7 +149,7 @@ function CommentForm({ postId }: { postId: string }) {
     <div className="flex gap-3">
       <CommentAvatar name={displayName} />
       <form
-        className="flex-1 space-y-2"
+        className="flex-1 space-y-2.5"
         onSubmit={(e) => {
           e.preventDefault()
           const text = content.trim()
@@ -164,9 +164,10 @@ function CommentForm({ postId }: { postId: string }) {
           onChange={(e) => setContent(e.target.value)}
           placeholder="写下你的评论……"
           rows={3}
+          className="rounded-xl bg-muted/40"
         />
         <div className="flex justify-end">
-          <Button type="submit" size="sm" disabled={mutation.isPending || content.trim().length === 0}>
+          <Button type="submit" size="sm" className="rounded-full px-5" disabled={mutation.isPending || content.trim().length === 0}>
             发表评论
           </Button>
         </div>

@@ -36,10 +36,10 @@ const FEATURES = [
 
 function AboutPage() {
   return (
-    <div className="mx-auto max-w-3xl space-y-12">
-      <header className="space-y-1 border-b pb-6">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">About</p>
-        <h1 className="text-3xl font-extrabold tracking-tight">关于本站</h1>
+    <div className="mx-auto w-full max-w-[44rem] space-y-12">
+      <header className="pb-2 pt-4 text-center">
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand">About</p>
+        <h1 className="mt-3 text-4xl font-extrabold tracking-tight">关于本站</h1>
       </header>
 
       <div className="prose prose-zinc dark:prose-invert max-w-none">
