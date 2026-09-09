@@ -38,7 +38,6 @@ function LoginPage() {
   const { oauth } = Route.useSearch()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [githubPending, setGithubPending] = useState(false)
   // 区分"本次登录成功"与"带着已有会话误入本页"：前者由 onSuccess 按组分流，
   // 后者直接回首页（读者组不该被送进写作台）。
   const justLoggedIn = useRef(false)
@@ -46,16 +45,6 @@ function LoginPage() {
   useEffect(() => {
     if (auth.status === 'signedIn' && !justLoggedIn.current) void navigate({ to: '/' })
   }, [auth.status, navigate])
-
-  async function handleGithubLogin(): Promise<void> {
-    setGithubPending(true)
-    try {
-      await startGithubLogin()
-    } catch (e) {
-      toast.error(describeError(e))
-      setGithubPending(false)
-    }
-  }
 
   const mutation = useMutation({
     // 登录由浏览器直连认证服务完成（终端用户 JWT），不经过应用服务器。
@@ -140,15 +129,9 @@ function LoginPage() {
         <span className="text-xs text-muted-foreground">或</span>
         <Separator className="flex-1" />
       </div>
-      <Button
-        type="button"
-        variant="outline"
-        className="mt-6 w-full"
-        disabled={githubPending}
-        onClick={() => void handleGithubLogin()}
-      >
-        {githubPending ? <Loader2 className="size-4 animate-spin" /> : <GitHubIcon />}
-        {githubPending ? '正在跳转 GitHub…' : '使用 GitHub 登录'}
+      <Button type="button" variant="outline" className="mt-6 w-full" onClick={() => startGithubLogin()}>
+        <GitHubIcon />
+        使用 GitHub 登录
       </Button>
     </AuthShell>
   )

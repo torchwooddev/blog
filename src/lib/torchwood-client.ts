@@ -254,7 +254,8 @@ export async function changePassword(oldPassword: string, newPassword: string): 
 }
 
 // ---------------------------------------------------------------------------
-// GitHub OAuth2 登录（浏览器直连网关的授权码流，与密码登录共用一套会话）
+// GitHub OAuth2 登录（网关浏览器流：authorize 302 发起 → 网关回调完成换发 →
+// success 地址以 URL fragment 携带 access_token）
 // ---------------------------------------------------------------------------
 
 /** 网关完成 GitHub 授权后回跳的本站地址。 */
@@ -266,30 +267,48 @@ function oauthCallbackOrigin(): string {
 }
 
 /**
- * 发起 GitHub 登录：向网关换取授权页地址并整页跳走。
- * GitHub 授权完成后回跳 success（由回调页用 code 换会话）；
- * 取消/失败回跳来源页并带 oauth=failed（登录/注册页据此提示）。
+ * 发起 GitHub 登录：整页跳转到网关 authorize 端点（校验 provider/回跳白名单
+ * 后 302 到 GitHub，并在网关域第一方上下文种下 nonce cookie 供回调配对）。
+ * 不能改用 SDK 的 createOAuth2Session：那是跨源 fetch，浏览器会丢弃响应里的
+ * Set-Cookie（nonce），回调 nonce 配对必败——authorize 端点正是为此而加。
  */
-export async function startGithubLogin(): Promise<void> {
+export function startGithubLogin(): void {
   const origin = oauthCallbackOrigin()
-  const { redirect_url } = await tw.account.createOAuth2Session({
-    provider: 'github',
+  const params = new URLSearchParams({
+    project_id: publicConfig.projectId,
     success: `${origin}${OAUTH_CALLBACK_PATH}`,
     failure: `${origin}${window.location.pathname}?oauth=failed`,
   })
-  window.location.href = redirect_url
+  const endpoint = publicConfig.endpoint.replace(/\/+$/, '')
+  window.location.href = `${endpoint}/v1/account/oauth2/github/authorize?${params}`
 }
 
-/** GitHub 回跳后用 code 换会话：写同一套 localStorage + 内存会话，与密码登录无差别。 */
-export async function completeGithubLogin(code: string, state: string): Promise<Account> {
-  const result = await tw.account.createOAuth2TokenSession({
-    provider: 'github',
-    code,
-    state,
-    success: `${oauthCallbackOrigin()}${OAUTH_CALLBACK_PATH}`,
-  })
-  applyAuthResult(result)
-  return result.account
+/**
+ * GitHub 回跳处理：网关 GET 回调已完成 code 换发与落库，重定向回本站时把
+ * access_token/userId 放在 URL fragment（#access_token=…&userId=…）。
+ * 这里解析 fragment、拉取账号并写入既有会话体系。
+ * 两个约束：state 已被网关回调消费，不能再走 createOAuth2TokenSession；
+ * fragment 不含 refresh_token（后端安全取舍），会话只活到 access token 过期，
+ * 过期后由 me()/写请求的 401 → clearSession 兜底，用户重新点一次 GitHub 登录。
+ */
+export async function completeGithubLogin(): Promise<Account> {
+  const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+  const accessToken = fragment.get('access_token')
+  if (!accessToken) {
+    throw new Error(
+      fragment.get('mfaRequired') === 'true'
+        ? '该账号启用了两步验证，暂不支持通过 GitHub 登录。'
+        : 'GitHub 登录没有返回会话，请重新尝试。',
+    )
+  }
+  tw.setAccessToken(accessToken)
+  const account = await tw.account.me()
+  // fragment 未带过期时间：存空串让 isExpiringSoon 恒为 false，避免拿空
+  // refresh_token 去刷新；真正过期由 API 401 兜底。
+  saveStoredTokens({ access_token: accessToken, refresh_token: '', expires_at: '' })
+  saveCachedAccount(account)
+  setAuth({ status: 'signedIn', account })
+  return account
 }
 
 // ---------------------------------------------------------------------------

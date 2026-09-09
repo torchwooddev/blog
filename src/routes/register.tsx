@@ -39,7 +39,6 @@ function RegisterPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [githubPending, setGithubPending] = useState(false)
   // 区分"本次注册成功"与"带着已有会话误入本页"：前者由 onSuccess 按组分流，
   // 后者直接回首页（读者组进写作台只会看到提示页）。
   const justRegistered = useRef(false)
@@ -47,16 +46,6 @@ function RegisterPage() {
   useEffect(() => {
     if (auth.status === 'signedIn' && !justRegistered.current) void navigate({ to: '/' })
   }, [auth.status, navigate])
-
-  async function handleGithubLogin(): Promise<void> {
-    setGithubPending(true)
-    try {
-      await startGithubLogin()
-    } catch (e) {
-      toast.error(describeError(e))
-      setGithubPending(false)
-    }
-  }
 
   const mutation = useMutation({
     // 注册即登录：成功后同步默认用户组（首个注册用户→管理员，其余→读者），
@@ -156,15 +145,9 @@ function RegisterPage() {
         <span className="text-xs text-muted-foreground">或</span>
         <Separator className="flex-1" />
       </div>
-      <Button
-        type="button"
-        variant="outline"
-        className="mt-6 w-full"
-        disabled={githubPending}
-        onClick={() => void handleGithubLogin()}
-      >
-        {githubPending ? <Loader2 className="size-4 animate-spin" /> : <GitHubIcon />}
-        {githubPending ? '正在跳转 GitHub…' : '使用 GitHub 注册'}
+      <Button type="button" variant="outline" className="mt-6 w-full" onClick={() => startGithubLogin()}>
+        <GitHubIcon />
+        使用 GitHub 注册
       </Button>
     </AuthShell>
   )
