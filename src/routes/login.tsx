@@ -1,9 +1,10 @@
 import { useMutation } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
-import { Github, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { AuthShell } from '#/components/auth-shell'
+import { GitHubIcon } from '#/components/github-icon'
 import { PasswordInput } from '#/components/password-input'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
@@ -146,7 +147,7 @@ function LoginPage() {
         disabled={githubPending}
         onClick={() => void handleGithubLogin()}
       >
-        {githubPending ? <Loader2 className="size-4 animate-spin" /> : <Github />}
+        {githubPending ? <Loader2 className="size-4 animate-spin" /> : <GitHubIcon />}
         {githubPending ? '正在跳转 GitHub…' : '使用 GitHub 登录'}
       </Button>
     </AuthShell>
