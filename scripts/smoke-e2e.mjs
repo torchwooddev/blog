@@ -12,7 +12,7 @@ const env = Object.fromEntries(
 )
 const ENDPOINT = env.BLOG_TORCHWOOD_ENDPOINT
 const PROJECT = env.BLOG_TORCHWOOD_PROJECT_ID
-const DB = 'blog'
+const DB = 'app'
 
 // Server 面（模拟 SSR / Server 函数 / 健康检查）
 const srv = Torchwood.withApiKey(ENDPOINT, PROJECT, env.BLOG_TORCHWOOD_API_KEY)

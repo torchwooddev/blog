@@ -5,7 +5,7 @@ import { webcrypto as crypto } from 'node:crypto'
 
 const GATEWAY = 'https://torchwood-dev.deeploop.run'
 const SITE = 'https://torchwood-blog-dev.deeploop.run'
-const DB = 'blog'
+const DB = 'app'
 const rand = crypto.randomUUID().slice(0, 8)
 const email = `sec-test-${rand}@test.local`
 // 测试口令经环境变量提供(SEC_TEST_PASSWORD),不写入仓库

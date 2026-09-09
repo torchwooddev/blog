@@ -155,7 +155,7 @@ realtime 需要 worker 进程在跑。
 
 ## 数据模型（`src/lib/blog-schema.ts`）
 
-数据库 `blog`，建模规约见 Torchwood `docs/developer/16-document-modeling.md`：
+数据库 `app`，建模规约见 Torchwood `docs/developer/16-document-modeling.md`：
 
 | 集合 | 属性 | 索引 | 权限要点 |
 |---|---|---|---|

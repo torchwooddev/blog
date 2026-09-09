@@ -14,7 +14,7 @@ const tw = Torchwood.withApiKey(env.BLOG_TORCHWOOD_ENDPOINT, env.BLOG_TORCHWOOD_
 const log = (step, ok, extra) => console.log(ok ? '  ok ' : 'FAIL', step, extra ?? '')
 
 try {
-  const db = await tw.server.databases.createDatabase({ id: 'blog', name: 'Torchwood Blog' })
+  const db = await tw.server.databases.createDatabase({ id: 'app', name: 'Torchwood Blog' })
   log('createDatabase', true, db.id)
 } catch (e) {
   log('createDatabase', false, `${e.status} ${e.code ?? ''} ${e.message}`)
@@ -27,7 +27,7 @@ for (const [id, name, perms, docSec] of [
   ['comments', '评论', ['read:any', 'create:users', 'read:keys', 'delete:keys'], false],
 ]) {
   try {
-    await tw.server.databases.createCollection('blog', {
+    await tw.server.databases.createCollection('app', {
       id,
       name,
       permissions: perms,
@@ -55,7 +55,7 @@ const attrSpecs = [
 ]
 for (const [coll, input] of attrSpecs) {
   try {
-    await tw.server.databases.createAttribute('blog', coll, input)
+    await tw.server.databases.createAttribute('app', coll, input)
     log(`createAttribute ${coll}.${input.key}`, true)
   } catch (e) {
     log(`createAttribute ${coll}.${input.key}`, false, `${e.status} ${e.code ?? ''} ${e.message}`)
@@ -71,7 +71,7 @@ const idxSpecs = [
 ]
 for (const [coll, input] of idxSpecs) {
   try {
-    await tw.server.databases.createIndex('blog', coll, input)
+    await tw.server.databases.createIndex('app', coll, input)
     log(`createIndex ${coll}.${input.id}`, true)
   } catch (e) {
     log(`createIndex ${coll}.${input.id}`, false, `${e.status} ${e.code ?? ''} ${e.message}`)
@@ -79,14 +79,14 @@ for (const [coll, input] of idxSpecs) {
 }
 
 try {
-  const count = await tw.server.databases.countDocuments('blog', 'posts', {})
+  const count = await tw.server.databases.countDocuments('app', 'posts', {})
   log('countDocuments posts', true, String(count))
 } catch (e) {
   log('countDocuments posts', false, `${e.status} ${e.code ?? ''} ${e.message}`)
 }
 
 try {
-  const page = await tw.server.databases.listDocuments('blog', 'posts', {
+  const page = await tw.server.databases.listDocuments('app', 'posts', {
     query: {
       filter: { isNotNull: { attribute: 'published_at' } },
       orders: [{ attribute: 'published_at', desc: true }],

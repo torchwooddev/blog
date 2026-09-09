@@ -29,6 +29,6 @@ for (let i = 1; i <= 5; i++) {
 // 3) 删除测试文章
 const r2 = await tw.account.signIn({ email, password })
 tw.setAccessToken(r2.tokens.access_token)
-const doc = await tw.databases.getDocument('blog', 'posts', postId)
-await tw.databases.deleteDocument('blog', 'posts', postId, doc.version)
+const doc = await tw.databases.getDocument('app', 'posts', postId)
+await tw.databases.deleteDocument('app', 'posts', postId, doc.version)
 console.log('[cleanup] test post deleted:', postId)

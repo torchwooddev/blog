@@ -17,7 +17,7 @@ if (!endpoint || !projectId || !apiKey) {
 }
 
 const tw = Torchwood.withApiKey(endpoint, projectId, apiKey)
-const DB = 'blog'
+const DB = 'app'
 
 const OLD_POST_IDS = [
   'post-hello-torchwood',
