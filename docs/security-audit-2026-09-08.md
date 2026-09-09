@@ -21,7 +21,25 @@
 | B-09 | 🟢 低 | `/config.js` 暴露 endpoint/projectId(设计使然) | 接受 |
 | B-10 | ⚪ 记录 | `HEAD /` 偶发 500 | 观察 |
 
-> 修复说明:四项代码修复(B-01/B-02/B-05/B-07)已于 2026-09-08 完成并通过本地构建与端到端复验(见文末"复验记录"),**尚未部署**——推送并等 Dokploy/GitHub Actions 发布后,需按"复验记录"的命令对线上环境复跑一遍。
+> 修复说明:四项代码修复(B-01/B-02/B-05/B-07)已于 2026-09-08 完成并通过本地构建与端到端复验(见文末"复验记录"),同日部署上线(镜像 `sha-8b38e10`)并完成**线上复扫**——见"线上复扫记录(2026-09-08)"。
+
+## 线上复扫记录(2026-09-08,严格模式)
+
+对新镜像 `sha-8b38e10` 的实弹复扫结果(手段与首轮检测相同,含破坏性写入;未做流量攻击):
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| B-01 | ✅ **修复生效** | 5 个特权 fn 未授权直调全部被鉴权墙拒绝(响应体为"未登录"文案,零写入);CSRF 绕过变体矩阵(无头/origin null/异域/同域 http/cross-site/referer)仅同源语义放行且随即撞鉴权墙,无回归 |
+| B-02 | ✅ 修复已上线 | 行为级复验受阻:网关数据面回归导致无法发文(见下);修复代码随镜像部署,本地已端到端验证(单测 3 例 + 本地构建断言) |
+| B-05 | ✅ **修复生效** | `/`、`/config.js` 等 5 个安全头全部存在,CSP-RO 内容按运行时 endpoint 正确生成 |
+| B-06 | ✅ **已修正** | `/config.js` 现在 `siteUrl=https://torchwood-blog-dev.deeploop.run`(Dokploy 环境变量已配) |
+| B-07 | ✅ **修复生效** | 8/8 用例:html/xhtml/swf→415、MIME/扩展名伪装→415、无扩展名→415;png/svg/pdf 正常放行;存储响应头完好(svg=attachment,png/pdf=inline + nosniff + CSP sandbox) |
+| B-03/B-04 | 未变 | 数据模型与 token 存储设计未动(预期内) |
+
+**复扫中发现的新问题(非 blog 代码缺陷,根因在 Torchwood 平台侧)**:
+
+- 🔴 **P1 数据面回归(Torchwood dev 网关,详见 torchwood 仓库同日报告)**:blog 库数据全部不可见(categories/posts/comments 匿名与站点侧均为空),JWT 直连网关写文档完整字段报 500、缺字段报 postgres 23502(物理表与 NOT NULL 列还在,服务/目录层不一致)。阻塞了 B-02 的线上行为复验与认证路径的写操作复验。**缓解**:重启 blog 容器(Dokploy Redeploy)——`ensureBlogReady` 单例会在进程启动时重新供给并灌种子(`BLOG_SEED=true`)。
+- ⚪ 残留(已知,记录在案):登录用户仍可跨用户管理分类/按 ID 删任意附件(应用无角色/所有权粒度);Traefik 未传 `X-Forwarded-Proto`,应用内 origin 仍为 http(复扫矩阵再次确认,当前不可被浏览器利用)。
 
 ---
 
@@ -121,9 +139,10 @@ const jsonLd = JSON.stringify({...}).replace(/</g, '\\u003c')
 
 ## 残留事项
 
-- 测试账号 `sec-test-873c7230@test.local`(口令不入库,见检测会话记录)无法经 API 自删,请在 Torchwood Console 手动清理
-- 测试数据已清理:测试文章/评论/附件/分类均已删除,测试页 404,首页/feed 正常。
-- PoC 脚本保留在 `scripts/sec-poc-*.mjs`、`scripts/sec-extract-ids.mjs`,修复后可复跑验证;确认修复后可删除。
+- ~~测试账号 `sec-test-873c7230@test.local` 需手动清理~~ ✅ 已通过平台新上线的 DeleteAccount API 删除并验证(旧 token 401、登录拒绝)。
+- blog-media 桶中遗留约 6 个复扫测试文件(`e2e.png/svg/pdf` 两轮,内容无害且被存储沙箱隔离),Console 手动清理。
+- 测试数据已清理:未成功写入任何文章/分类(数据面回归阻塞),无其他残留。
+- PoC 脚本保留在 `scripts/sec-*.mjs`,凭证一律环境变量注入,可复跑;确认不需要后可删。
 
 ## 修复优先级
 
