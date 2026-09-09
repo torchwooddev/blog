@@ -104,7 +104,7 @@ npm run test         # vitest（错误映射 / markdown 消毒 / 版本归一化
 > 见 [docs/deploy-cloudflare.md](docs/deploy-cloudflare.md)。
 
 链路：push `main`（或打 `v*` tag）→ Actions 质量门（`npm run check` + `test`）→ buildx 多阶段构建
-→ 推镜像到 `ghcr.io/torchwooddev/blog`（`latest` + `sha-<hash>`，tag 发布再加 semver）
+→ 推镜像到 `ghcr.io/torchwoodcloud/blog`（`latest` + `sha-<hash>`，tag 发布再加 semver）
 → 回调 Dokploy Deploy Webhook → Dokploy 拉新镜像重部署。
 
 **镜像是通用的**：所有配置运行时注入——`BLOG_*` 服务端直接读，公开配置经 `GET /config.js`

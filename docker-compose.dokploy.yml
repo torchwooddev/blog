@@ -6,7 +6,7 @@
 # =============================================================================
 services:
   blog:
-    image: ghcr.io/torchwooddev/blog:latest
+    image: ghcr.io/torchwoodcloud/blog:latest
     restart: unless-stopped
     pull_policy: always
     expose:
