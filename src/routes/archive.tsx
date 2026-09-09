@@ -5,6 +5,7 @@ import { useMemo } from 'react'
 import { EmptyState } from '#/components/empty-state'
 import { LoadingList } from '#/components/post-list'
 import { publicConfig } from '#/lib/config'
+import { formatMonthDay, formatYear } from '#/lib/format'
 import { settingsFromMatches } from '#/lib/site-settings'
 import { archiveOptions, categoriesOptions } from '#/lib/query-options'
 
@@ -41,10 +42,10 @@ function ArchivePage() {
     const byCategory = new Map((categories.data ?? []).map((c) => [c.id, c.name]))
     const byYear = new Map<string, YearGroup>()
     for (const entry of archive.data ?? []) {
-      const date = new Date(entry.publishedAt)
-      if (Number.isNaN(date.getTime())) continue
-      const year = String(date.getFullYear())
-      const monthDay = date.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
+      // 年份/月日走固定展示时区（format.ts），SSR 与 hydration 文本一致
+      const year = formatYear(entry.publishedAt)
+      if (!year) continue
+      const monthDay = formatMonthDay(entry.publishedAt)
       let group = byYear.get(year)
       if (!group) {
         group = { year, items: [] }

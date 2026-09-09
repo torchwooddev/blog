@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { currentYear } from '#/lib/format'
 import { useSiteSettings } from '#/lib/site-settings-client'
 
 const FOOTER_NAV = [
@@ -10,7 +11,7 @@ const FOOTER_NAV = [
 
 /** 极简居中页脚：字标 + 简介 + 导航一行 + 订阅/版权。 */
 export function SiteFooter() {
-  const year = new Date().getFullYear()
+  const year = currentYear()
   const settings = useSiteSettings()
   return (
     <footer className="border-t">
