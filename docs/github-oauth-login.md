@@ -70,9 +70,13 @@ Client Secret 只存在 Torchwood 侧；博客的 `wrangler.jsonc` / `.env` / Do
 
 ## 应用侧实现（供维护参考）
 
+依赖 `@torchwood/sdk` ≥ 0.3.0（`buildOAuth2AuthorizeURL` +
+`parseOAuth2CallbackFragment`；更早版本的 `createOAuth2Session` 在浏览器场景
+已废弃，勿回退）。
+
 | 文件 | 职责 |
 |---|---|
-| `src/lib/torchwood-client.ts` | `startGithubLogin()`（拼 authorize 端点地址并整页跳转）、`completeGithubLogin()`（解析 fragment → `me()` → 写会话） |
+| `src/lib/torchwood-client.ts` | `startGithubLogin()`（SDK `buildOAuth2AuthorizeURL` 拼发起地址并整页跳转）、`completeGithubLogin()`（SDK `parseOAuth2CallbackFragment` 解析 fragment → `me()` → 写会话） |
 | `src/routes/auth.github.callback.tsx` | 回跳页：建立会话 → `syncMyGroupKey()` 落组 → 按组分流（读者组回首页，其余进写作台）；完成后抹掉地址栏 fragment |
 | `src/routes/login.tsx` / `register.tsx` | GitHub 按钮 + `?oauth=failed` 失败提示条 |
 
@@ -87,8 +91,8 @@ Client Secret 只存在 Torchwood 侧；博客的 `wrangler.jsonc` / `.env` / Do
    Redirect Allowlist 加上站点 origin。
 2. **授权后落在一坨 404 JSON（网关域 `/?error=oauth_failed`）**：网关回调校验
    失败后 302 到网关根路径，而根路径没有页面。常见原因：
-   - 发起用了 SDK 的 `createOAuth2Session`（跨源 fetch 丢 nonce cookie）——
-     必须整页跳 `authorize` 端点（本仓库已如此实现）；
+   - 发起用了旧版 SDK 的 `createOAuth2Session`（<0.3.0；跨源 fetch 丢 nonce
+     cookie）——必须用 `buildOAuth2AuthorizeURL` 整页跳 authorize 端点；
    - state 过期（10 分钟内没完成授权）或被消费过，重试一次即可。
 3. **GitHub 报 `redirect_uri_mismatch`**：OAuth App 的 callback URL 与网关
    期望的不一致（协议、域名、端口、路径任一不同都会拒绝）。
