@@ -5,7 +5,7 @@
 实时订阅与 SSR 内容站。
 
 技术栈：**TanStack Start**（TanStack Router + Vite + Nitro，Node 目标）· React 18 · TypeScript（strict，零 `any`）·
-TanStack Query · shadcn/ui + Tailwind · `@torchwood/sdk` **0.2.0**（唯一后端 SDK）。
+TanStack Query · shadcn/ui + Tailwind · `@torchwood/sdk` **0.4.0**（唯一后端 SDK）。
 
 ---
 
@@ -197,7 +197,7 @@ slug → id 两段式解析（无跨集合 JOIN）。
   幂等去重、`seq` 作续传游标；断线重连后用 `listChanges(since_seq)` 补齐窗口
   （`EVENTS.RESUME_EXPIRED` 时全量刷新兜底）。realtime 网关只收终端用户 JWT（拒匿名与 API Key）。
 - **写幂等**：作者台/评论的每次逻辑写都带 `Idempotency-Key`（HTTP 面的 request_id 等价物），
-  通过注入 `TorchwoodConfig.fetch` 实现（SDK 0.2.0 未暴露 request_id 字段）。
+  通过注入 `TorchwoodConfig.fetch` 实现（SDK 至 0.4.0 未暴露 request_id 字段）。
 - **OCC**：更新/删除强制 `version`；冲突（`DOCUMENT.VERSION_CONFLICT`）自动重读重试一次
   （`src/lib/errors.ts` 的 `withOccRetry`）。注意 wire 上 version 是 **int64 字符串**、域码可能
   以 `FailedPrecondition` + message 前缀到达——都已在应用层归一。
@@ -280,7 +280,7 @@ scripts/
 - **种子草稿**属于虚拟作者 `user:seed-author`（读写删都只授给它），因此对所有人（含 API Key）
   完全不可见——用于演示"最严格的私有"。Torchwood 语义是"可写即可读"，要私有就必须把读写删
   全部只留给属主。
-- **SDK 0.2.0 的两处类型缺口**在应用层显式收窄（不用 `any`）：`arrayUpdates`（wire 支持，
+- **SDK（至 0.4.0）的两处类型缺口**在应用层显式收窄（不用 `any`）：`arrayUpdates`（wire 支持，
   `UpdateDocumentInput` 未声明）；`Document.version` 实为 int64 字符串/缺省省略（`parseVersion` 归一）。
 - Markdown 渲染用 remark/rehype + `rehype-sanitize` 白名单消毒（isomorphic-dompurify 在
   Nitro ESM 产物中因 jsdom 的 `__dirname` 不可用）。
